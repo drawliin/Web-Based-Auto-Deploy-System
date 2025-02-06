@@ -5,6 +5,7 @@ function App() {
   const [message, setMessage] = useState('');
 
   const handleClone = async () => {
+    setMessage('Repository cloning...');
     try {
       const response = await fetch('http://localhost:5000/api/clone-repo', {
         method: 'POST',
@@ -18,7 +19,7 @@ function App() {
       setMessage(data.message);
     } catch (error) {
       console.error('Error cloning repo:', error);
-      setMessage('Error cloning repo');
+      setMessage('Server problem');
     }
   };
 
@@ -31,7 +32,7 @@ function App() {
         value={repoUrl}
         onChange={(e) => setRepoUrl(e.target.value)}
       />
-      <button onClick={handleClone}>Clone Repo</button>
+      <button onClick={handleClone} disabled={message === 'Server problem' || message === 'Repository cloning...'}>Clone Repo</button>
       {message && <p>{message}</p>}
     </div>
   );

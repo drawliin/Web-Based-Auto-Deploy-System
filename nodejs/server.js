@@ -2,6 +2,7 @@ const express = require('express');
 const cors = require('cors');
 const simpleGit = require('simple-git');
 const fs = require('fs');
+const { exec } = require('child_process');
 const path = require('path');
 const app = express();
 const port = 5000;
@@ -18,7 +19,7 @@ const generateUniqueFolderName = (repoUrl) => {
   const repoName = repoUrl.split('/').pop().replace('.git', '');
   const timestamp = Date.now();
   const uniqueName = `${repoName}-${timestamp}`;
-  return path.join(__dirname, 'cloned-repos', uniqueName);
+  return {clonePath: path.join(__dirname, 'cloned-repos', uniqueName), uniqueName: uniqueName};
 };
 
 // Function to check if the cloned repo has the full-stack app structure
@@ -40,6 +41,131 @@ const deleteRepo = (repoPath) => {
     }
 };
 
+// Function to detect the frontend technology
+const detectFrontendTechnology = (repoPath) => {
+  const packageJsonPath = path.join(repoPath, 'frontend', 'package.json');
+  if (fs.existsSync(packageJsonPath)) {
+    const packageJson = require(packageJsonPath);
+    if (packageJson.dependencies && packageJson.dependencies.react) {
+      return 'react';
+    } else if (packageJson.dependencies && packageJson.dependencies.vue) {
+      return 'vue';
+    } else if (fs.existsSync(path.join(repoPath, 'frontend', 'angular.json'))) {
+      return 'angular';
+    }
+  }
+  return 'unknown';
+};
+
+// Function to detect the backend technology
+const detectBackendTechnology = (repoPath) => {
+  const packageJsonPath = path.join(repoPath, 'backend', 'package.json');
+  if (fs.existsSync(packageJsonPath)) {
+    const packageJson = require(packageJsonPath);
+    if (packageJson.dependencies && packageJson.dependencies.express) {
+      return 'nodejs-express';
+    }
+  }
+  return 'unknown';
+};
+
+// Function to create a Dockerfile for the frontend based on technology
+const createFrontendDockerfile = (repoPath, frontendTech, folderName) => {
+  let dockerfile = '';
+  if (frontendTech === 'react') {
+    dockerfile = `
+      # Dockerfile for React app
+      FROM node:latest AS build
+      WORKDIR /app
+      COPY package*.json ./
+      RUN npm install
+      COPY ./ ./
+      RUN npm run build
+
+      FROM nginx:alpine
+      COPY --from=build /app/dist /usr/share/nginx/html
+      EXPOSE 80
+      CMD ["nginx", "-g", "daemon off;"]
+    `;
+  } else if (frontendTech === 'vue') {
+    dockerfile = `
+      # Dockerfile for Vue app
+      FROM node:latest AS build
+      WORKDIR /app
+      COPY package*.json ./
+      RUN npm install
+      COPY ./ ./
+      RUN npm run build
+
+      FROM nginx:alpine
+      COPY --from=build /app/dist /usr/share/nginx/html
+      EXPOSE 80
+      CMD ["nginx", "-g", "daemon off;"]
+    `;
+  } else if (frontendTech === 'angular') {
+    dockerfile = `
+      # Dockerfile for Angular app
+      FROM node:latest AS build
+      WORKDIR /app
+      COPY package*.json ./
+      RUN npm install
+      COPY ./ ./
+      RUN npm run build --prod
+
+      FROM nginx:alpine
+      COPY --from=build /app/dist/${folderName}/browser /usr/share/nginx/html
+      EXPOSE 80
+      CMD ["nginx", "-g", "daemon off;"]
+    `;
+  }
+  fs.writeFileSync(path.join(repoPath, 'frontend', 'Dockerfile'), dockerfile);
+};
+
+// Function to create a Dockerfile for the backend based on technology
+const createBackendDockerfile = (repoPath, backendTech) => {
+  let dockerfile = '';
+  if (backendTech === 'nodejs-express') {
+    dockerfile = `
+      # Dockerfile for Node.js backend
+      FROM node:latest
+      WORKDIR /app
+      COPY backend/package*.json ./
+      RUN npm install
+      COPY backend/ ./
+      EXPOSE 5000
+      CMD ["npm", "start"]
+    `;
+  }
+  fs.writeFileSync(path.join(repoPath, 'backend', 'Dockerfile'), dockerfile);
+};
+
+// Function to create a docker-compose.yml file
+const createDockerComposeFile = (repoPath) => {
+  const dockerCompose = `
+    version: '3'
+    services:
+      frontend:
+        build:
+          context: .
+          dockerfile: frontend/Dockerfile
+        ports:
+          - "80:80"
+        networks:
+          - app-network
+      backend:
+        build:
+          context: .
+          dockerfile: backend/Dockerfile
+        ports:
+          - "5000:5000"
+        networks:
+          - app-network
+    networks:
+      app-network:
+        driver: bridge
+  `;
+  fs.writeFileSync(path.join(repoPath, 'docker-compose.yml'), dockerCompose);
+};
 
 
 // Clone the repository based on the URL provided in the request
@@ -51,14 +177,52 @@ app.post('/api/clone-repo', (req, res) => {
   }
 
   // Create a unique folder for the new repository
-  const clonePath = generateUniqueFolderName(repoUrl);
+  const {clonePath, uniqueName} = generateUniqueFolderName(repoUrl);
 
 
   // Clone the repository
   git.clone(repoUrl, clonePath)
     .then(() => {
         if (isFullStackApp(clonePath)) {
-            res.status(200).json({ message: `Repository cloned successfully and is a full-stack app at ${clonePath}`});
+            // Detect frontend and backend technologies
+            const frontendTech = detectFrontendTechnology(clonePath);
+            
+            // remove comment later
+            //const backendTech = detectBackendTechnology(clonePath);
+
+            // Create Dockerfiles for frontend and backend
+            createFrontendDockerfile(clonePath, frontendTech, uniqueName);
+            
+            // remove comment later
+            //createBackendDockerfile(clonePath, backendTech);
+            
+            // Create docker-compose.yml
+            // remove comment later
+            //createDockerComposeFile(clonePath);
+
+            //Automatically build and deploy
+            // exec(`cd ${clonePath} && docker-compose up --build -d`, (err, stdout, stderr) => {
+            //     if (err) {
+            //       console.error("Deployment Error:", stderr);
+            //       return res.status(500).json({ message: 'Error deploying application.' });
+            //     }
+            //     console.log("Deployment Success:", stdout);
+            //     res.status(200).json({ message: 'Application deployed successfully!', url: 'http://localhost' });
+            // });
+            const newPath = path.join(__dirname, 'cloned-repos', uniqueName, 'frontend')
+            exec(`cd ${newPath} && docker build -t image1 . && docker run -d -p 4201:80 image1`, (err, stdout, stderr) => {
+              if (err) {
+                console.log("Deployment Error:", stderr);
+                console.log("stderr:", stderr);
+                return res.status(500).json({ message: 'Error deploying application.' });
+              }
+              console.log("Deployment Success:", stdout);
+              console.log("Docker build success:", stdout);
+              
+              
+              res.status(200).json({ message: `Repository cloned successfully and is a full-stack app at ${clonePath}`});
+          });  
+            
         }else {
             res.status(400).json({ message: 'This project does not have a valid full-stack app structure.' });
             deleteRepo(clonePath);
