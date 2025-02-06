@@ -75,7 +75,7 @@ const createFrontendDockerfile = (repoPath, frontendTech) => {
   if (frontendTech === 'react') {
     dockerfile = `
       # Dockerfile for React app
-      FROM node:latest AS build
+      FROM node:alpine AS build
       WORKDIR /app
       COPY package*.json ./
       RUN npm install
@@ -90,7 +90,7 @@ const createFrontendDockerfile = (repoPath, frontendTech) => {
   } else if (frontendTech === 'vue') {
     dockerfile = `
       # Dockerfile for Vue app
-      FROM node:latest AS build
+      FROM node:alpine AS build
       WORKDIR /app
       COPY package*.json ./
       RUN npm install
@@ -105,7 +105,7 @@ const createFrontendDockerfile = (repoPath, frontendTech) => {
   } else if (frontendTech === 'angular') {
     dockerfile = `
       # Dockerfile for Angular app
-      FROM node:latest AS build
+      FROM node:alpine AS build
       WORKDIR /app
       COPY package*.json ./
       RUN npm install
@@ -118,35 +118,8 @@ const createFrontendDockerfile = (repoPath, frontendTech) => {
       CMD ["nginx", "-g", "daemon off;"]
     `;
   }
-  
-  const dockerignoreContent = `
-      node_modules
-      logs
-      *.log
-      .env
-      /build
-      /dist
-      /.next
-      /out
-      /.cache
-      .vscode/
-      .idea/
-      .DS_Store
-      Thumbs.db
-      .git
-      .gitignore
-      __pycache__/
-      *.pyc
-      *.pyo
-      *.pyd
-      venv/
-      vendor/
-  `;
 
   fs.writeFileSync(path.join(repoPath, 'frontend', 'Dockerfile'), dockerfile);
-
-  fs.writeFileSync(path.join(repoPath, '.dockerignore'), dockerignoreContent);
-  
 };
 
 // Function to create a Dockerfile for the backend based on technology
@@ -155,11 +128,11 @@ const createBackendDockerfile = (repoPath, backendTech) => {
   if (backendTech === 'nodejs-express') {
     dockerfile = `
       # Dockerfile for Node.js backend
-      FROM node:latest
+      FROM node:alpine
       WORKDIR /app
-      COPY backend/package*.json ./
+      COPY package*.json ./
       RUN npm install
-      COPY backend/ ./
+      COPY ./ ./
       EXPOSE 5000
       CMD ["npm", "start"]
     `;
@@ -167,23 +140,50 @@ const createBackendDockerfile = (repoPath, backendTech) => {
   fs.writeFileSync(path.join(repoPath, 'backend', 'Dockerfile'), dockerfile);
 };
 
+// Function to create dockerignore
+const createDockerignore = (repoPath) => {
+  const dockerignoreContent = `
+    node_modules
+    logs
+    *.log
+    .env
+    /build
+    /dist
+    /.next
+    /out
+    /.cache
+    .vscode/
+    .idea/
+    .DS_Store
+    Thumbs.db
+    .git
+    .gitignore
+    __pycache__/
+    *.pyc
+    *.pyo
+    *.pyd
+    venv/
+    vendor/
+  `;
+  fs.writeFileSync(path.join(repoPath, '.dockerignore'), dockerignoreContent);
+};
+
 // Function to create a docker-compose.yml file
 const createDockerComposeFile = (repoPath) => {
   const dockerCompose = `
-    version: '3'
     services:
       frontend:
         build:
-          context: .
-          dockerfile: frontend/Dockerfile
+          context: ./frontend
+          dockerfile: Dockerfile
         ports:
           - "80:80"
         networks:
           - app-network
       backend:
         build:
-          context: .
-          dockerfile: backend/Dockerfile
+          context: ./backend
+          dockerfile: Dockerfile
         ports:
           - "5000:5000"
         networks:
@@ -220,9 +220,10 @@ app.post('/api/clone-repo', (req, res) => {
 
             // Create Dockerfiles for frontend and backend
             createFrontendDockerfile(clonePath, frontendTech);
-            
-            
             createBackendDockerfile(clonePath, backendTech);
+
+            // Create dockerignore
+            createDockerignore(clonePath);
             
             // Create docker-compose.yml
             
@@ -244,7 +245,7 @@ app.post('/api/clone-repo', (req, res) => {
         }
     })
     .catch((err) => {
-      console.error('Error cloning repo:', err);
+      console.log('Error cloning repo:', err);
       res.status(500).json({ message: 'Error cloning repository', error: err.message });
     });
 });
