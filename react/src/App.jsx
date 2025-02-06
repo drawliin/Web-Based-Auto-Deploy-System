@@ -15,7 +15,7 @@ function App() {
       });
 
       const data = await response.json();
-      setMessage(data.message);
+      setMessage(`${data.message}: ${data.error}`);
     } catch (error) {
       console.error('Error cloning repo:', error);
       setMessage('Error cloning repo');
