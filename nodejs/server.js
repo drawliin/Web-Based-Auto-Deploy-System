@@ -19,7 +19,7 @@ const generateUniqueFolderName = (repoUrl) => {
   const repoName = repoUrl.split('/').pop().replace('.git', '');
   const timestamp = Date.now();
   const uniqueName = `${repoName}-${timestamp}`;
-  return {clonePath: path.join(__dirname, 'cloned-repos', uniqueName), uniqueName: uniqueName};
+  return path.join(__dirname, 'cloned-repos', uniqueName);
 };
 
 // Function to check if the cloned repo has the full-stack app structure
@@ -70,7 +70,7 @@ const detectBackendTechnology = (repoPath) => {
 };
 
 // Function to create a Dockerfile for the frontend based on technology
-const createFrontendDockerfile = (repoPath, frontendTech, folderName) => {
+const createFrontendDockerfile = (repoPath, frontendTech) => {
   let dockerfile = '';
   if (frontendTech === 'react') {
     dockerfile = `
@@ -118,7 +118,35 @@ const createFrontendDockerfile = (repoPath, frontendTech, folderName) => {
       CMD ["nginx", "-g", "daemon off;"]
     `;
   }
+  
+  const dockerignoreContent = `
+      node_modules
+      logs
+      *.log
+      .env
+      /build
+      /dist
+      /.next
+      /out
+      /.cache
+      .vscode/
+      .idea/
+      .DS_Store
+      Thumbs.db
+      .git
+      .gitignore
+      __pycache__/
+      *.pyc
+      *.pyo
+      *.pyd
+      venv/
+      vendor/
+  `;
+
   fs.writeFileSync(path.join(repoPath, 'frontend', 'Dockerfile'), dockerfile);
+
+  fs.writeFileSync(path.join(repoPath, '.dockerignore'), dockerignoreContent);
+  
 };
 
 // Function to create a Dockerfile for the backend based on technology
@@ -177,7 +205,7 @@ app.post('/api/clone-repo', (req, res) => {
   }
 
   // Create a unique folder for the new repository
-  const {clonePath, uniqueName} = generateUniqueFolderName(repoUrl);
+  const clonePath = generateUniqueFolderName(repoUrl);
 
 
   // Clone the repository
@@ -191,7 +219,7 @@ app.post('/api/clone-repo', (req, res) => {
             const backendTech = detectBackendTechnology(clonePath);
 
             // Create Dockerfiles for frontend and backend
-            createFrontendDockerfile(clonePath, frontendTech, uniqueName);
+            createFrontendDockerfile(clonePath, frontendTech);
             
             
             createBackendDockerfile(clonePath, backendTech);
