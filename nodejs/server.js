@@ -113,7 +113,7 @@ const createFrontendDockerfile = (repoPath, frontendTech, folderName) => {
       RUN npm run build --prod
 
       FROM nginx:alpine
-      COPY --from=build /app/dist/${folderName}/browser /usr/share/nginx/html
+      COPY --from=build /app/dist/frontend/browser /usr/share/nginx/html
       EXPOSE 80
       CMD ["nginx", "-g", "daemon off;"]
     `;
@@ -187,41 +187,28 @@ app.post('/api/clone-repo', (req, res) => {
             // Detect frontend and backend technologies
             const frontendTech = detectFrontendTechnology(clonePath);
             
-            // remove comment later
-            //const backendTech = detectBackendTechnology(clonePath);
+            
+            const backendTech = detectBackendTechnology(clonePath);
 
             // Create Dockerfiles for frontend and backend
             createFrontendDockerfile(clonePath, frontendTech, uniqueName);
             
-            // remove comment later
-            //createBackendDockerfile(clonePath, backendTech);
+            
+            createBackendDockerfile(clonePath, backendTech);
             
             // Create docker-compose.yml
-            // remove comment later
-            //createDockerComposeFile(clonePath);
+            
+            createDockerComposeFile(clonePath);
 
             //Automatically build and deploy
-            // exec(`cd ${clonePath} && docker-compose up --build -d`, (err, stdout, stderr) => {
-            //     if (err) {
-            //       console.error("Deployment Error:", stderr);
-            //       return res.status(500).json({ message: 'Error deploying application.' });
-            //     }
-            //     console.log("Deployment Success:", stdout);
-            //     res.status(200).json({ message: 'Application deployed successfully!', url: 'http://localhost' });
-            // });
-            const newPath = path.join(__dirname, 'cloned-repos', uniqueName, 'frontend')
-            exec(`cd ${newPath} && docker build -t image1 . && docker run -d -p 4201:80 image1`, (err, stdout, stderr) => {
-              if (err) {
-                console.log("Deployment Error:", stderr);
-                console.log("stderr:", stderr);
-                return res.status(500).json({ message: 'Error deploying application.' });
-              }
-              console.log("Deployment Success:", stdout);
-              console.log("Docker build success:", stdout);
-              
-              
-              res.status(200).json({ message: `Repository cloned successfully and is a full-stack app at ${clonePath}`});
-          });  
+            exec(`cd ${clonePath} && docker-compose up --build -d`, (err, stdout, stderr) => {
+                if (err) {
+                  console.log("Deployment Error:", stderr);
+                  return res.status(500).json({ message: 'Error deploying application.' });
+                }
+                console.log("Deployment Success:", stdout);
+                res.status(200).json({ message: 'Application deployed successfully!', url: 'http://localhost' });
+            });
             
         }else {
             res.status(400).json({ message: 'This project does not have a valid full-stack app structure.' });
