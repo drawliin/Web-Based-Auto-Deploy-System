@@ -57,39 +57,57 @@ const detectFrontendTechnology = (repoPath) => {
   return 'unknown';
 };
 
-// Function to detect the backend technology
+// Function to detect the backend technology and its PORT
 const detectBackendTechnology = (repoPath) => {
-  const packageJsonPath = path.join(repoPath, 'backend', 'package.json');
-  if (fs.existsSync(packageJsonPath)) {
-    const packageJson = require(packageJsonPath);
-    if (packageJson.dependencies && packageJson.dependencies.express) {
-      return 'nodejs-express';
-    }
-  }
+  const files = fs.readdirSync(repoPath);
+
+  // ✅ Node.js
+  if (fs.existsSync(path.join(repoPath, 'backend', 'package.json'))) return 'nodejs';
+
   return 'unknown';
+};
+const detectBackendPort = (repoPath, technology) => {
+  // 1️⃣ Check .env file first
+  const envFilePath = path.join(repoPath, 'backend', '.env');
+  if (fs.existsSync(envFilePath)) {
+      const envContent = fs.readFileSync(envFilePath, 'utf-8');
+      const portMatch = envContent.match(/PORT\s*=\s*(\d+)/);
+      if (portMatch) return parseInt(portMatch[1], 10);
+  }
+
+  // 2️⃣ Look for port definitions in common backend files
+  const techPortPatterns = {
+      'nodejs': /listen\s*\(\s*(\d+)/,  // app.listen(3000)
+      'python': /run\(\s*host=.*?,\s*port=(\d+)/,  // Flask app.run(port=5000)
+      'php': /'port'\s*=>\s*(\d+)/,  // Laravel config
+  };
+
+  const filesToCheck = {
+      'nodejs': ['server.js', 'index.js', 'app.js'],
+      'python': ['main.py', 'app.py'],
+      'php': ['config/app.php'], // Laravel config file
+  };
+
+  if (!filesToCheck[technology]) return 'invalid technology';
+
+  for (const file of filesToCheck[technology]) {
+      const filePath = path.join(repoPath, 'backend', file);
+      if (fs.existsSync(filePath)) {
+          const content = fs.readFileSync(filePath, 'utf-8');
+          const match = content.match(techPortPatterns[technology]);
+          if (match) return parseInt(match[1], 10);
+      }
+  }
+
+  return 'no port found'; // Return null if no port is found
 };
 
 // Function to create a Dockerfile for the frontend based on technology
 const createFrontendDockerfile = (repoPath, frontendTech) => {
   let dockerfile = '';
-  if (frontendTech === 'react') {
+  if (frontendTech === 'react' || frontendTech === 'vue') {
     dockerfile = `
       # Dockerfile for React app
-      FROM node:alpine AS build
-      WORKDIR /app
-      COPY package*.json ./
-      RUN npm install
-      COPY ./ ./
-      RUN npm run build
-
-      FROM nginx:alpine
-      COPY --from=build /app/dist /usr/share/nginx/html
-      EXPOSE 80
-      CMD ["nginx", "-g", "daemon off;"]
-    `;
-  } else if (frontendTech === 'vue') {
-    dockerfile = `
-      # Dockerfile for Vue app
       FROM node:alpine AS build
       WORKDIR /app
       COPY package*.json ./
@@ -123,9 +141,9 @@ const createFrontendDockerfile = (repoPath, frontendTech) => {
 };
 
 // Function to create a Dockerfile for the backend based on technology
-const createBackendDockerfile = (repoPath, backendTech) => {
+const createBackendDockerfile = (repoPath, backendTech, port) => {
   let dockerfile = '';
-  if (backendTech === 'nodejs-express') {
+  if (backendTech === 'nodejs') {
     dockerfile = `
       # Dockerfile for Node.js backend
       FROM node:alpine
@@ -133,7 +151,7 @@ const createBackendDockerfile = (repoPath, backendTech) => {
       COPY package*.json ./
       RUN npm install
       COPY ./ ./
-      EXPOSE 5000
+      EXPOSE ${port}
       CMD ["npm", "start"]
     `;
   }
@@ -169,7 +187,7 @@ const createDockerignore = (repoPath) => {
 };
 
 // Function to create a docker-compose.yml file
-const createDockerComposeFile = (repoPath) => {
+const createDockerComposeFile = (repoPath, port) => {
   const dockerCompose = `
     services:
       frontend:
@@ -185,7 +203,7 @@ const createDockerComposeFile = (repoPath) => {
           context: ./backend
           dockerfile: Dockerfile
         ports:
-          - "5000:5000"
+          - "${port}:${port}"
         networks:
           - app-network
     networks:
@@ -214,26 +232,26 @@ app.post('/api/clone-repo', (req, res) => {
         if (isFullStackApp(clonePath)) {
             // Detect frontend and backend technologies
             const frontendTech = detectFrontendTechnology(clonePath);
-            
-            
             const backendTech = detectBackendTechnology(clonePath);
+
+            const port = detectBackendPort(clonePath, backendTech);
 
             // Create Dockerfiles for frontend and backend
             createFrontendDockerfile(clonePath, frontendTech);
-            createBackendDockerfile(clonePath, backendTech);
+            createBackendDockerfile(clonePath, backendTech, port);
 
             // Create dockerignore
             createDockerignore(clonePath);
             
             // Create docker-compose.yml
             
-            createDockerComposeFile(clonePath);
+            createDockerComposeFile(clonePath, port);
 
             //Automatically build and deploy
-            exec(`cd ${clonePath} && docker-compose up --build -d`, (err, stdout, stderr) => {
+            exec(`cd ${clonePath} && docker-compose build --no-cache && docker-compose up --build -d`, (err, stdout, stderr) => {
                 if (err) {
                   console.log("Deployment Error:", stderr);
-                  return res.status(500).json({ message: 'Error deploying application.' });
+                  return res.status(500).json({ message: `Error deploying application: ${stderr}` });
                 }
                 console.log("Deployment Success:", stdout);
                 res.status(200).json({ message: 'Application deployed successfully!', url: 'http://localhost' });
