@@ -71,7 +71,7 @@ const detectBackendPort = (repoPath, technology) => {
   const envFilePath = path.join(repoPath, 'backend', '.env');
   if (fs.existsSync(envFilePath)) {
       const envContent = fs.readFileSync(envFilePath, 'utf-8');
-      const portMatch = envContent.match(/PORT\s*=\s*(\d+)/);
+      const portMatch = envContent.match(/\w*PORT\s*=\s*(\d+)/);
       if (portMatch) return parseInt(portMatch[1], 10);
   }
 
@@ -251,6 +251,9 @@ app.post('/api/clone-repo', (req, res) => {
             exec(`cd ${clonePath} && docker-compose build --no-cache && docker-compose up --build -d`, (err, stdout, stderr) => {
                 if (err) {
                   console.log("Deployment Error:", stderr);
+                  if(err.toString().includes("port is already allocated")){
+                    return res.status(500).json({ message: `🚨 Deployment Failed: Port Conflict 🚨` });
+                  }
                   return res.status(500).json({ message: `Error deploying application: ${stderr}` });
                 }
                 console.log("Deployment Success:", stdout);
