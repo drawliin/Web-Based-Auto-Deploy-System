@@ -33,7 +33,7 @@ function App() {
         onChange={(e) => setRepoUrl(e.target.value)}
       />
       <button onClick={handleClone} disabled={message === 'Server problem' || message === 'Repository cloning...'}>Clone Repo</button>
-      {message && <p>{message}</p>}
+      {message && <div dangerouslySetInnerHTML={{ __html: message }} />}
     </div>
   );
 }

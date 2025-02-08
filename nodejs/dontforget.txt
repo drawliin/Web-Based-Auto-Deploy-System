@@ -1,0 +1,1 @@
+on exec function add (docker-compose build --no-cache &&)

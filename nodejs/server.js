@@ -244,20 +244,22 @@ app.post('/api/clone-repo', (req, res) => {
             createDockerignore(clonePath);
             
             // Create docker-compose.yml
-            
             createDockerComposeFile(clonePath, port);
 
             //Automatically build and deploy
-            exec(`cd ${clonePath} && docker-compose build --no-cache && docker-compose up --build -d`, (err, stdout, stderr) => {
+            exec(`cd ${clonePath} && docker-compose up --build -d`, (err, stdout, stderr) => {
                 if (err) {
                   console.log("Deployment Error:", stderr);
                   if(err.toString().includes("port is already allocated")){
-                    return res.status(500).json({ message: `🚨 Deployment Failed: Port Conflict 🚨` });
+                    return res.status(500).json({ message: `
+                      <p>🚨 Deployment Failed: Port Conflict 🚨</p>
+                      <p>🔍 Reason: Another container or service is already using the required port.</p>
+                      ` });
                   }
                   return res.status(500).json({ message: `Error deploying application: ${stderr}` });
                 }
                 console.log("Deployment Success:", stdout);
-                res.status(200).json({ message: 'Application deployed successfully!', url: 'http://localhost' });
+                res.status(200).json({ message: `Application deployed successfully! <a href='http://localhost:80' target=_blank>Deployed Page</a>` });
             });
             
         }else {
