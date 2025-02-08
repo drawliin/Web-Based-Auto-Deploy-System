@@ -4,6 +4,7 @@ const simpleGit = require('simple-git');
 const fs = require('fs');
 const { exec } = require('child_process');
 const path = require('path');
+
 const app = express();
 const port = 5000;
 
@@ -225,12 +226,12 @@ app.post('/api/clone-repo', (req, res) => {
   // Create a unique folder for the new repository
   const clonePath = generateUniqueFolderName(repoUrl);
 
-
   // Clone the repository
   git.clone(repoUrl, clonePath)
-    .then(() => {
-        if (isFullStackApp(clonePath)) {
-            // Detect frontend and backend technologies
+    .then(() => {         
+      
+      if (isFullStackApp(clonePath)) {
+          // Detect frontend and backend technologies
             const frontendTech = detectFrontendTechnology(clonePath);
             const backendTech = detectBackendTechnology(clonePath);
 
@@ -273,7 +274,9 @@ app.post('/api/clone-repo', (req, res) => {
     });
 });
 
+
 // Start the server
 app.listen(port, () => {
   console.log(`Server running on http://localhost:${port}`);
 });
+
