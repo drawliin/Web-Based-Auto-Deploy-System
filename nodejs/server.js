@@ -3,8 +3,6 @@ const cors = require('cors');
 const simpleGit = require('simple-git');
 const fs = require('fs');
 const { exec } = require('child_process');
-const { promisify } = require('util');
-const execPromise = promisify(exec);
 const path = require('path');
 
 const app = express();
@@ -75,6 +73,36 @@ const detectBackendTechnology = (repoPath) => {
 
   return 'unknown';
 };
+
+const detectNodeEntryFile = (repoPath) => {
+  try {
+      const packageJson = require(path.join(repoPath, 'backend', 'package.json'));
+      if (packageJson.main) return [packageJson.main];
+  } catch (error) {
+      console.log('Error reading package.json:', error);
+  }
+  return ['server.js', 'index.js', 'app.js']; // Fallback
+};
+const detectPythonEntryFile = (repoPath) => {
+  const backendPath = path.join(repoPath, 'backend');
+
+  // ✅ Prioritize manage.py if it exists (Django projects)
+  if (fs.existsSync(path.join(backendPath, 'manage.py'))) return ['manage.py'];
+
+  // Get all Python files
+  const pyFiles = fs.readdirSync(backendPath).filter(file => file.endsWith('.py'));
+
+  // ✅ Look for __main__ function
+  for (const file of pyFiles) {
+      const filePath = path.join(backendPath, file);
+      const content = fs.readFileSync(filePath, 'utf-8');
+      if (content.includes('__main__')) return [file];
+  }
+
+  return null; // No clear entry file found
+};
+
+
 const detectBackendPort = (repoPath, technology) => {
   // 1️⃣ Check .env file first
   const envFilePath = path.join(repoPath, 'backend', '.env');
@@ -87,13 +115,13 @@ const detectBackendPort = (repoPath, technology) => {
   // 2️⃣ Look for port definitions in common backend files
   const techPortPatterns = {
       'nodejs': /listen\s*\(\s*(\d+)/,  // app.listen(3000)
-      'python': /run\(\s*host=.*?,\s*port=(\d+)/,  // Flask app.run(port=5000)
+      'python': /run\(\s*host=.*?,\s*port\s*=\s*(\d+)/,  // Flask app.run(port=5000)
       'php': /'port'\s*=>\s*(\d+)/,  // Laravel config
   };
 
   const filesToCheck = {
-      'nodejs': ['server.js', 'index.js', 'app.js'],
-      'python': ['main.py', 'app.py'],
+      'nodejs': detectNodeEntryFile(repoPath),
+      'python': detectPythonEntryFile(repoPath),
       'php': ['config/app.php'], // Laravel config file
   };
 
@@ -259,7 +287,8 @@ app.post('/api/clone-repo', (req, res) => {
             createDockerComposeFile(clonePath, port);
 
             //Automatically build and deploy
-            exec(`cd ${clonePath} && docker-compose up --build -d`, async (err, stdout, stderr) => {
+            // add cache ignore later
+            exec(`cd ${clonePath} && docker-compose up --build -d`, (err, stdout, stderr) => {
                 if (err) {
                   console.log("Deployment Error:", stderr);
                   if(err.toString().includes("port is already allocated")){
