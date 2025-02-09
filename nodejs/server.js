@@ -3,6 +3,8 @@ const cors = require('cors');
 const simpleGit = require('simple-git');
 const fs = require('fs');
 const { exec } = require('child_process');
+const { promisify } = require('util');
+const execPromise = promisify(exec);
 const path = require('path');
 
 const app = express();
@@ -46,8 +48,14 @@ const deleteRepo = (repoPath) => {
 const detectFrontendTechnology = (repoPath) => {
   const packageJsonPath = path.join(repoPath, 'frontend', 'package.json');
   if (fs.existsSync(packageJsonPath)) {
+
     const packageJson = require(packageJsonPath);
     if (packageJson.dependencies && packageJson.dependencies.react) {
+      const viteJSBundlerPath = path.join(repoPath, 'frontend', 'vite.config.js');
+      const viteTSBundlerPath = path.join(repoPath, 'frontend', 'vite.config.ts');
+      if(fs.existsSync(viteJSBundlerPath) || fs.existsSync(viteTSBundlerPath)){
+        return 'react-vite';
+      }
       return 'react';
     } else if (packageJson.dependencies && packageJson.dependencies.vue) {
       return 'vue';
@@ -106,7 +114,7 @@ const detectBackendPort = (repoPath, technology) => {
 // Function to create a Dockerfile for the frontend based on technology
 const createFrontendDockerfile = (repoPath, frontendTech) => {
   let dockerfile = '';
-  if (frontendTech === 'react' || frontendTech === 'vue') {
+  if (frontendTech === 'react-vite' || frontendTech === 'react' || frontendTech === 'vue') {
     dockerfile = `
       # Dockerfile for React app
       FROM node:alpine AS build
@@ -117,7 +125,7 @@ const createFrontendDockerfile = (repoPath, frontendTech) => {
       RUN npm run build
 
       FROM nginx:alpine
-      COPY --from=build /app/dist /usr/share/nginx/html
+      COPY --from=build /app/${frontendTech === 'react' ? 'build' : 'dist'} /usr/share/nginx/html
       EXPOSE 80
       CMD ["nginx", "-g", "daemon off;"]
     `;
@@ -145,6 +153,7 @@ const createFrontendDockerfile = (repoPath, frontendTech) => {
 const createBackendDockerfile = (repoPath, backendTech, port) => {
   let dockerfile = '';
   if (backendTech === 'nodejs') {
+    const packageJson = require(path.join(repoPath, 'backend', 'package.json'));
     dockerfile = `
       # Dockerfile for Node.js backend
       FROM node:alpine
@@ -153,7 +162,7 @@ const createBackendDockerfile = (repoPath, backendTech, port) => {
       RUN npm install
       COPY ./ ./
       EXPOSE ${port}
-      CMD ["npm", "start"]
+      CMD ["node", "${packageJson.main}"]
     `;
   }
   fs.writeFileSync(path.join(repoPath, 'backend', 'Dockerfile'), dockerfile);
@@ -214,6 +223,8 @@ const createDockerComposeFile = (repoPath, port) => {
   fs.writeFileSync(path.join(repoPath, 'docker-compose.yml'), dockerCompose);
 };
 
+// Function to check if all containers are running
+
 
 // Clone the repository based on the URL provided in the request
 app.post('/api/clone-repo', (req, res) => {
@@ -248,7 +259,7 @@ app.post('/api/clone-repo', (req, res) => {
             createDockerComposeFile(clonePath, port);
 
             //Automatically build and deploy
-            exec(`cd ${clonePath} && docker-compose up --build -d`, (err, stdout, stderr) => {
+            exec(`cd ${clonePath} && docker-compose up --build -d`, async (err, stdout, stderr) => {
                 if (err) {
                   console.log("Deployment Error:", stderr);
                   if(err.toString().includes("port is already allocated")){
@@ -256,9 +267,12 @@ app.post('/api/clone-repo', (req, res) => {
                       <p>🚨 Deployment Failed: Port Conflict 🚨</p>
                       <p>🔍 Reason: Another container or service is already using the required port.</p>
                       ` });
+                  }else if(err.toString().includes('error during connect')){
+                    return res.status(500).json({ message: `🚨 Docker Desktop is not running. Please start Docker and try again. 🚨` });
                   }
                   return res.status(500).json({ message: `Error deploying application: ${stderr}` });
                 }
+
                 console.log("Deployment Success:", stdout);
                 res.status(200).json({ message: `Application deployed successfully! <a href='http://localhost:80' target=_blank>Deployed Page</a>` });
             });
