@@ -187,45 +187,17 @@ const detectDatabase = (repoPath) => {
 
 
 // Function to create a Dockerfile for the frontend based on technology
-const createFrontendDockerfile = (repoPath, frontendTech, port) => {
-  // create nginx conf
-  createNginxConfig(repoPath, port);
-
-  let dockerfile = '';
-  if (frontendTech === 'react-vite' || frontendTech === 'react' || frontendTech === 'vue') {
-    dockerfile = `
-      # Dockerfile for React app
+const createFrontendDockerfile = (repoPath, frontendTech) => {
+  
+  let dockerfile = `
+    # Dockerfile for React app
       FROM node:alpine AS build
       WORKDIR /app
       COPY package*.json ./
       RUN npm install
       COPY ./ ./
-      RUN npm run build
-
-      FROM nginx:alpine
-      COPY --from=build /app/${frontendTech === 'react' ? 'build' : 'dist'} /usr/share/nginx/html
-      COPY /nginx.conf /etc/nginx/nginx.conf
-      EXPOSE 80
-      CMD ["nginx", "-g", "daemon off;"]
-    `;
-  } else if (frontendTech === 'angular') {
-    dockerfile = `
-      # Dockerfile for Angular app
-      FROM node:alpine AS build
-      WORKDIR /app
-      COPY package*.json ./
-      RUN npm install
-      COPY ./ ./
-      RUN npm run build
-
-      FROM nginx:alpine
-      COPY --from=build /app/dist/frontend/browser /usr/share/nginx/html
-      COPY /nginx.conf /etc/nginx/nginx.conf
-      EXPOSE 80
-      CMD ["nginx", "-g", "daemon off;"]
-    `;
-  }
-
+  `;
+  
   fs.writeFileSync(path.join(repoPath, 'frontend', 'Dockerfile'), dockerfile);
 };
 
@@ -322,25 +294,37 @@ const readEnvFile = (repoPath) => {
 // generate nginx config
 const createNginxConfig = (repoPath, port) => {
   const nginxConfig = `
-    server {
-      listen 80;
+    events {}
 
-      location / {
-        root /usr/share/nginx/html;
-        index index.html;
-        try_files $uri /index.html;
+    http {
+      include       mime.types;
+      default_type  application/octet-stream;
+      types {
+        application/javascript js;
       }
+        
+      server {
+          listen 80;
 
-      location /api/ {
-        proxy_pass http://backend:${port};
-        proxy_set_header Host $host;
-        proxy_set_header X-Real-IP $remote_addr;
-        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+          location / {
+            root /usr/share/nginx/html;
+            index index.html;
+            try_files $uri $uri/ @backend;
+          }
+
+          # Forward all other requests to Backend
+          location @backend {
+              proxy_pass http://backend:${port};
+              proxy_set_header Host $host;
+              proxy_set_header X-Real-IP $remote_addr;
+              proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+          }
       }
     }
+
   `;
 
-  fs.writeFileSync(path.join(repoPath, 'nginx', 'nginx.conf'), nginxConfig);
+  fs.writeFileSync(path.join(repoPath, 'nginx.conf'), nginxConfig);
 };
 
 // Function to create dockerignore
@@ -371,102 +355,43 @@ const createDockerignore = (repoPath) => {
   fs.writeFileSync(path.join(repoPath, '.dockerignore'), dockerignoreContent);
 };
 
-// Function to create a docker-compose.yml file
-const createDockerComposeFile = (repoPath, port, databaseType) => {
-  const envVariables = readEnvFile(repoPath);
-
-  const databasePorts = {
-    mysql: 3306,
-    postgres: 5432,
-    mongodb: 27017,
-    redis: 6379,
-  };
-
-  let databaseService = '';
-  const dbHost = 'database';  // Service name for the database in docker-compose
-  const dbPort = envVariables.DB_PORT || databasePorts[databaseType];
-  
-  switch (databaseType) {
-    case 'mysql':
-      databaseService = `
-      database:
-        build:
-          context: ./database
-          dockerfile: Dockerfile
-        ports:
-          - "3306:3306"
-        volumes:
-          - db-data:/var/lib/mysql
-        environment:
-          - MYSQL_ROOT_PASSWORD=${envVariables.DB_PASSWORD}
-          - MYSQL_DATABASE=${envVariables.DB_NAME}
-        networks:
-          - app-network
-      `;
-      break;
-
-    case 'postgres':
-      databaseService = `
-      database:
-        build:
-          context: ./database
-          dockerfile: Dockerfile
-        ports:
-          - "5432:5432"
-        volumes:
-          - db-data:/var/lib/postgresql/data
-        environment:
-          - POSTGRES_USER=${envVariables.DB_USER}
-          - POSTGRES_PASSWORD=${envVariables.DB_PASSWORD}
-          - POSTGRES_DB=${envVariables.DB_NAME}
-        networks:
-          - app-network
-      `;
-      break;
-
-    case 'mongodb':
-      databaseService = `
-      database:
-        build:
-          context: ./database
-          dockerfile: Dockerfile
-        ports:
-          - "27017:27017"
-        volumes:
-          - db-data:/data/db
-        
-        networks:
-          - app-network
-      `;
-      break;
-
-    case 'redis':
-      databaseService = `
-      database:
-        build:
-          context: ./database
-          dockerfile: Dockerfile
-        ports:
-          - "6379:6379"
-        networks:
-          - app-network
-      `;
-      break;
+// get build path
+const getBuildPath = (frontendTech) => {
+  switch (frontendTech) {
+      case 'react':
+          return 'build';
+      case 'react-vite':
+      case 'vue':
+          return 'dist';
+      case 'angular':
+          return 'dist/frontend/browser';
+      default:
+          return null; // Handle unsupported frontend tech
   }
+};
 
-  const dockerCompose = `
-    services:
+// Function to create a docker-compose.yml file
+const createDockerComposeFile = (repoPath, port, frontendTech) => {
+  const frontendPath = getBuildPath(frontendTech);  // Get the build path dynamically
+
+  let frontendService = '';
+  if (frontendPath) {
+    frontendService = `
       frontend:
         build:
           context: ./frontend
           dockerfile: Dockerfile
-        ports:
-          - "80:80"
+        volumes:
+          - ./frontend/${frontendPath}:/app/${frontendPath}  # Valid volume mapping
+        command: ["npm", "run", "build"]
         depends_on:
           - backend
-        networks:
-          - app-network
-      
+    `;
+  }
+
+  const dockerCompose = `
+    services:
+      ${frontendService.trim()}${frontendService ? '\n' : ''}
       backend:
         build:
           context: ./backend
@@ -474,25 +399,29 @@ const createDockerComposeFile = (repoPath, port, databaseType) => {
         container_name: backend
         ports:
           - "${port}:${port}"
-        environment:
-          - DB_HOST=${dbHost}
-          - DB_PORT=${dbPort}
-          - DB_USER=${envVariables.DB_USER}
-          - DB_PASSWORD=${envVariables.DB_PASSWORD}
-          - DB_NAME=${envVariables.DB_NAME}
-        networks:
-           app-network
       
-      ${databaseService}
+      nginx:
+        image: nginx:alpine
+        volumes:
+          - ./nginx.conf:/etc/nginx/nginx.conf:ro  # Mount Nginx config file
+          - ./frontend/${frontendPath}:/usr/share/nginx/html  # Serve frontend files (Ensure frontendPath is correct)
+        ports:
+          - "8080:80"  # Expose Nginx on port 8080
+        depends_on:
+          - backend
+          ${frontendPath ? "- frontend" : ""} # Add frontend only if it exists
 
-    networks:
-      app-network:
-        driver: bridge
+networks:
+  app-network:
+    driver: bridge
 
-    volumes:
-      db-data:
+volumes:
+  db-data:
   `;
-  fs.writeFileSync(path.join(repoPath, 'docker-compose.yml'), dockerCompose);
+  console.log(dockerCompose);
+  // Ensure the output is correctly written to the file
+  const dockerComposeFilePath = path.join(repoPath, 'docker-compose.yml');
+  fs.writeFileSync(dockerComposeFilePath, dockerCompose.trim());  // Write to the final path
 };
 
 // Function to check if all containers are running
@@ -517,7 +446,7 @@ app.post('/api/clone-repo', (req, res) => {
           // Detect frontend and backend technologies
             const frontendTech = detectFrontendTechnology(clonePath);
             const backendTech = detectBackendTechnology(clonePath);
-            const databaseTech = detectDatabase(clonePath);
+            //const databaseTech = detectDatabase(clonePath);
 
             const port = detectBackendPort(clonePath, backendTech);
             
@@ -526,13 +455,16 @@ app.post('/api/clone-repo', (req, res) => {
             // Create Dockerfiles for frontend, backend and database
             createFrontendDockerfile(clonePath, frontendTech);
             createBackendDockerfile(clonePath, backendTech, port);
-            createDatabaseDockerfile(clonePath, databaseTech);
+            //createDatabaseDockerfile(clonePath, databaseTech);
             
             // Create dockerignore
             createDockerignore(clonePath);
+
+            //create nginx.conf
+            createNginxConfig(clonePath, port);
             
             // Create docker-compose.yml
-            createDockerComposeFile(clonePath, port);
+            createDockerComposeFile(clonePath, port, frontendTech);
             
             //Automatically build and deploy
             // add cache ignore later
@@ -551,7 +483,7 @@ app.post('/api/clone-repo', (req, res) => {
                 }
 
                 console.log("Deployment Success:", stdout);
-                res.status(200).json({ message: `Application deployed successfully! <a href='http://localhost:80' target=_blank>Deployed Page</a>` });
+                res.status(200).json({ message: `Application deployed successfully! <a href='http://localhost:8080' target=_blank>Deployed Page</a>` });
             });
             
         }else {
