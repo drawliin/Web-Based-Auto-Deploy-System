@@ -10,7 +10,7 @@ function App() {
   const handleClone = async () => {
     setMessage('Start Cloning Repo...');
     try {
-      const response = await fetch('http://localhost:5000/api/clone-repo', {
+      const response = await fetch('http://localhost:5001/api/clone-repo', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'

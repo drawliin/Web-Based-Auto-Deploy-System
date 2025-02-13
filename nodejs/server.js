@@ -6,7 +6,7 @@ const { exec } = require('child_process');
 const path = require('path');
 
 const app = express();
-const port = 5000;
+const port = 5001;
 
 // Enable CORS
 app.use(cors());
@@ -70,6 +70,9 @@ const detectBackendTechnology = (repoPath) => {
   // ✅ Node.js
   if (fs.existsSync(path.join(repoPath, 'backend', 'package.json'))) return 'nodejs';
 
+  // ✅ Python (check for requirements.txt)
+  if (fs.existsSync(path.join(repoPath, 'backend', 'requirements.txt'))) return 'python';
+  
   return 'unknown';
 };
 
@@ -309,12 +312,12 @@ const createNginxConfig = (repoPath, port) => {
           location / {
             root /usr/share/nginx/html;
             index index.html;
-            try_files $uri $uri/ @backend;
+            try_files $uri /index.html ;
           }
 
           # Forward all other requests to Backend
-          location @backend {
-              proxy_pass http://backend:${port};
+          location /api/ {
+              proxy_pass http://backend:${port}/;
               proxy_set_header Host $host;
               proxy_set_header X-Real-IP $remote_addr;
               proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
@@ -405,6 +408,7 @@ const createDockerComposeFile = (repoPath, port, frontendTech) => {
         volumes:
           - ./nginx.conf:/etc/nginx/nginx.conf:ro  # Mount Nginx config file
           - ./frontend/${frontendPath}:/usr/share/nginx/html  # Serve frontend files (Ensure frontendPath is correct)
+          
         ports:
           - "8080:80"  # Expose Nginx on port 8080
         depends_on:
@@ -424,7 +428,19 @@ volumes:
   fs.writeFileSync(dockerComposeFilePath, dockerCompose.trim());  // Write to the final path
 };
 
-// Function to check if all containers are running
+// Function to check nginx is serving
+const checkNginx = async () => {
+  try {
+    const response = await fetch('http://localhost:8080'); // Checking the deployed frontend
+    if (response.status === 200) {
+      return true; // Nginx is ready
+    }
+    return false; // Nginx is not ready
+  } catch (error) {
+    console.error('Error checking Nginx:', error.message);
+    return false; // Nginx is not ready
+  }
+};
 
 
 // Clone the repository based on the URL provided in the request
@@ -468,7 +484,7 @@ app.post('/api/clone-repo', (req, res) => {
             
             //Automatically build and deploy
             // add cache ignore later
-            exec(`cd ${clonePath} && docker-compose up --build -d`, (err, stdout, stderr) => {
+            exec(`cd ${clonePath} && docker-compose up --build -d`, async(err, stdout, stderr) => {
                 if (err) {
                   console.log("Deployment Error:", stderr);
                   if(err.toString().includes("port is already allocated")){
@@ -483,7 +499,30 @@ app.post('/api/clone-repo', (req, res) => {
                 }
 
                 console.log("Deployment Success:", stdout);
-                res.status(200).json({ message: `Application deployed successfully! <a href='http://localhost:8080' target=_blank>Deployed Page</a>` });
+
+                let retries = 50;
+                let nginxReady = false;
+
+                while (retries > 0 && !nginxReady) {
+                  nginxReady = await checkNginx();
+                  if (nginxReady) {
+                    break; // Nginx is ready
+                  }
+                  retries--;
+                  console.log('Waiting for Nginx to be ready...');
+                  await new Promise(resolve => setTimeout(resolve, 4000)); // Wait for 3 seconds
+                }
+
+                if (nginxReady) {
+                  console.log('Ready to go');
+                  res.status(200).json({
+                    message: `Application deployed successfully! <a href='http://localhost:8080' target='_blank'>Deployed Page</a>`,
+                  });
+                } else {
+                  res.status(500).json({
+                    message: "🚨 Deployment Failed: Nginx did not become ready within the expected time. 🚨",
+                  });
+                }
             });
             
         }else {
