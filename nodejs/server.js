@@ -117,7 +117,7 @@ const detectBackendPort = (repoPath, technology) => {
   // 2️⃣ Look for port definitions in common backend files
   const techPortPatterns = {
       'nodejs': /listen\s*\(\s*(\d+)/,  // app.listen(3000)
-      'python': /run\(\s*host=.*?,\s*port\s*=\s*(\d+)/,  // Flask app.run(port=5000)
+      'python': /\.run\([^)]*port\s*=\s*(\d+)/,  // Flask app.run(port=5000)
       'php': /'port'\s*=>\s*(\d+)/,  // Laravel config
   };
 
@@ -219,6 +219,20 @@ const createBackendDockerfile = (repoPath, backendTech, port) => {
       EXPOSE ${port}
       CMD ["node", "${packageJson.main}"]
     `;
+  }else if(backendTech === 'python'){
+    const pythonEntryFile = detectPythonEntryFile(repoPath);
+    if (!pythonEntryFile || pythonEntryFile.length === 0) {
+      throw new Error('No valid Python entry file found.');
+    }
+
+    dockerfile = `
+      FROM python:latest
+      WORKDIR /app
+      COPY ./ ./
+      RUN pip install --no-cache-dir -r ./requirements.txt
+      EXPOSE ${port}
+      CMD ["python", "${pythonEntryFile[0]}"]
+    `
   }
   fs.writeFileSync(path.join(repoPath, 'backend', 'Dockerfile'), dockerfile);
 };
@@ -374,10 +388,12 @@ const getBuildPath = (frontendTech) => {
 };
 
 // Function to create a docker-compose.yml file
-const createDockerComposeFile = (repoPath, port, frontendTech) => {
+const createDockerComposeFile = (repoPath, port, frontendTech, backendTech) => {
   const frontendPath = getBuildPath(frontendTech);  // Get the build path dynamically
 
   let frontendService = '';
+  let backendService = '';
+
   if (frontendPath) {
     frontendService = `
       frontend:
@@ -391,6 +407,25 @@ const createDockerComposeFile = (repoPath, port, frontendTech) => {
           - backend
     `;
   }
+  if (backendTech === 'nodejs'){
+    backendService = `
+      backend:
+        build:
+          context: ./backend
+          dockerfile: Dockerfile
+        ports:
+          - "${port}:${port}"      
+    `;
+  }else if (backendTech === 'python'){
+    backendService = `
+      backend:
+        build:
+          context: ./backend
+          dockerfile: Dockerfile
+        ports:
+          - "${port}:${port}"    
+    `;
+  }
 
   const dockerCompose = `
     services:
@@ -399,7 +434,6 @@ const createDockerComposeFile = (repoPath, port, frontendTech) => {
         build:
           context: ./backend
           dockerfile: Dockerfile
-        container_name: backend
         ports:
           - "${port}:${port}"
       

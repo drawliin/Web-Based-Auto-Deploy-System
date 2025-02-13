@@ -22,7 +22,7 @@ function App() {
       setMessage(data.message);
     }catch (error) {
       console.log('Error cloning repo:', error);
-      setMessage('Server problem');
+      setMessage('Server is down. Please turn it on');
     }
   };
 
