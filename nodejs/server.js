@@ -66,13 +66,22 @@ const detectFrontendTechnology = (repoPath) => {
 
 // Function to detect the backend technology and its PORT
 const detectBackendTechnology = (repoPath) => {
+  const backendPath = path.join(repoPath, 'backend');
+  const reqFilePath = path.join(backendPath, 'requirements.txt');
 
-  // ✅ Node.js
-  if (fs.existsSync(path.join(repoPath, 'backend', 'package.json'))) return 'nodejs';
+  // ✅ Node.js Detection
+  if (fs.existsSync(path.join(backendPath, 'package.json'))) return 'nodejs';
 
-  // ✅ Python (check for requirements.txt)
-  if (fs.existsSync(path.join(repoPath, 'backend', 'requirements.txt'))) return 'python';
-  
+  // ✅ Python Backend Detection
+  if (fs.existsSync(reqFilePath)) {
+
+    let buffer = fs.readFileSync(reqFilePath);
+    let requirements = buffer.toString('utf16le'); // Convert from UTF-16 to string
+    requirements = requirements.replace(/\r/g, '').trim().toLowerCase(); // Normalize line endings
+
+    if (requirements.includes('flask')) return 'python-flask';
+  }
+
   return 'unknown';
 };
 
@@ -87,10 +96,6 @@ const detectNodeEntryFile = (repoPath) => {
 };
 const detectPythonEntryFile = (repoPath) => {
   const backendPath = path.join(repoPath, 'backend');
-
-  // ✅ Prioritize manage.py if it exists (Django projects)
-  if (fs.existsSync(path.join(backendPath, 'manage.py'))) return ['manage.py'];
-
   // Get all Python files
   const pyFiles = fs.readdirSync(backendPath).filter(file => file.endsWith('.py'));
 
@@ -117,13 +122,13 @@ const detectBackendPort = (repoPath, technology) => {
   // 2️⃣ Look for port definitions in common backend files
   const techPortPatterns = {
       'nodejs': /listen\s*\(\s*(\d+)/,  // app.listen(3000)
-      'python': /\.run\([^)]*port\s*=\s*(\d+)/,  // Flask app.run(port=5000)
+      'python-flask': /\.run\([^)]*port\s*=\s*(\d+)/,  // Flask app.run(port=5000)
       'php': /'port'\s*=>\s*(\d+)/,  // Laravel config
   };
 
   const filesToCheck = {
       'nodejs': detectNodeEntryFile(repoPath),
-      'python': detectPythonEntryFile(repoPath),
+      'python-flask': detectPythonEntryFile(repoPath),
       'php': ['config/app.php'], // Laravel config file
   };
 
@@ -147,34 +152,52 @@ const detectDatabase = (repoPath) => {
   // Step 1: Check the backend technology first
   const backendTech = detectBackendTechnology(repoPath);
 
-  // Step 2: If the backend is detected, check for database dependencies in the backend
-  if (backendTech === 'nodejs') {
-    const packageJsonPath = path.join(repoPath, 'backend', 'package.json');
-    if (fs.existsSync(packageJsonPath)) {
-      const packageJson = require(packageJsonPath);
-      if (packageJson.dependencies) {
-        if (packageJson.dependencies['mysql']) return 'mysql';
-        if (packageJson.dependencies['pg']) return 'postgres';
-        if (packageJson.dependencies['mongodb']) return 'mongodb';
-        if (packageJson.dependencies['redis']) return 'redis';
+  // Step 2: Use switch statement to handle different backend technologies
+  switch (backendTech) {
+    case 'nodejs': {
+      const packageJsonPath = path.join(repoPath, 'backend', 'package.json');
+      if (fs.existsSync(packageJsonPath)) {
+        const packageJson = require(packageJsonPath);
+        if (packageJson.dependencies) {
+          if (packageJson.dependencies['mysql']) return 'mysql';
+          if (packageJson.dependencies['pg']) return 'postgres';
+          if (packageJson.dependencies['mongodb']) return 'mongodb';
+          if (packageJson.dependencies['redis']) return 'redis';
+          if (packageJson.dependencies['sqlite3']) return 'sqlite';
+          if (packageJson.dependencies['sequelize']) return 'sequelize';
+          if (packageJson.dependencies['typeorm']) return 'typeorm';
+        }
       }
+      break; // End of Node.js case
     }
-  } else if (backendTech === 'php') {
-    const composerJsonPath = path.join(repoPath, 'backend', 'composer.json');
-    if (fs.existsSync(composerJsonPath)) {
-      const composerJson = require(composerJsonPath);
-      if (composerJson.require) {
-        if (composerJson.require['mysql']) return 'mysql';
-        if (composerJson.require['pgsql']) return 'postgres';
+    case 'php': {
+      const composerJsonPath = path.join(repoPath, 'backend', 'composer.json');
+      if (fs.existsSync(composerJsonPath)) {
+        const composerJson = require(composerJsonPath);
+        if (composerJson.require) {
+          if (composerJson.require['mysql']) return 'mysql';
+          if (composerJson.require['pgsql']) return 'postgres';
+        }
       }
+      break; // End of PHP case
     }
+    case 'python-flask': {
+      const requirementsPath = path.join(repoPath, 'backend', 'requirements.txt');
+      if (fs.existsSync(requirementsPath)) {
+        const requirements = fs.readFileSync(requirementsPath, 'utf-8');
+        if (requirements.includes('mysqlclient')) return 'mysql';
+        if (requirements.includes('psycopg2')) return 'postgres';
+        if (requirements.includes('pymongo')) return 'mongodb';
+      }
+      break; // End of Python case
+    }
+    default:
+      break;
   }
 
   // Step 3: If no database is found in the backend, check the database folder for .env
   const databasePath = path.join(repoPath, 'database');
-
   if (fs.existsSync(databasePath)) {
-    // Check for .env file in the database folder
     const envPath = path.join(databasePath, '.env');
     if (fs.existsSync(envPath)) {
       const envContent = fs.readFileSync(envPath, 'utf-8');
@@ -190,7 +213,7 @@ const detectDatabase = (repoPath) => {
 
 
 // Function to create a Dockerfile for the frontend based on technology
-const createFrontendDockerfile = (repoPath, frontendTech) => {
+const createFrontendDockerfile = (repoPath) => {
   
   let dockerfile = `
     # Dockerfile for React app
@@ -207,32 +230,40 @@ const createFrontendDockerfile = (repoPath, frontendTech) => {
 // Function to create a Dockerfile for the backend based on technology
 const createBackendDockerfile = (repoPath, backendTech, port) => {
   let dockerfile = '';
-  if (backendTech === 'nodejs') {
-    const packageJson = require(path.join(repoPath, 'backend', 'package.json'));
-    dockerfile = `
-      # Dockerfile for Node.js backend
-      FROM node:alpine
-      WORKDIR /app
-      COPY package*.json ./
-      RUN npm install
-      COPY ./ ./
-      EXPOSE ${port}
-      CMD ["node", "${packageJson.main}"]
-    `;
-  }else if(backendTech === 'python'){
-    const pythonEntryFile = detectPythonEntryFile(repoPath);
-    if (!pythonEntryFile || pythonEntryFile.length === 0) {
-      throw new Error('No valid Python entry file found.');
+  switch (backendTech) {
+    case 'nodejs': {
+      const packageJson = require(path.join(repoPath, 'backend', 'package.json'));
+      dockerfile = `
+        # Dockerfile for Node.js backend
+        FROM node:alpine
+        WORKDIR /app
+        COPY package*.json ./
+        RUN npm install
+        COPY ./ ./
+        EXPOSE ${port}
+        CMD ["node", "${packageJson.main}"]
+      `;
+      break;
     }
 
-    dockerfile = `
-      FROM python:latest
-      WORKDIR /app
-      COPY ./ ./
-      RUN pip install --no-cache-dir -r ./requirements.txt
-      EXPOSE ${port}
-      CMD ["python", "${pythonEntryFile[0]}"]
-    `
+    case 'python-flask': {
+      const pythonEntryFile = detectPythonEntryFile(repoPath);
+      if (!pythonEntryFile || pythonEntryFile.length === 0) {
+        throw new Error('No valid Python entry file found.');
+      }
+      dockerfile = `
+        FROM python:latest
+        WORKDIR /app
+        COPY ./ ./
+        RUN pip install --no-cache-dir -r ./requirements.txt
+        EXPOSE ${port}
+        CMD ["python", "${pythonEntryFile[0]}"]
+      `;
+      break;
+    }
+
+    default:
+      throw new Error(`Unsupported backend technology: ${backendTech}`);
   }
   fs.writeFileSync(path.join(repoPath, 'backend', 'Dockerfile'), dockerfile);
 };
@@ -266,6 +297,9 @@ const createDatabaseDockerfile = (repoPath, databaseType) => {
     case 'mongodb':
       dockerfile = `
         FROM mongo:latest
+        ENV MONGO_INITDB_ROOT_USERNAME=root
+        ENV MONGO_INITDB_ROOT_PASSWORD=root
+        ENV MONGO_INITDB_DATABASE=mydb
         VOLUME /data/db
         EXPOSE 27017
       `;
@@ -284,28 +318,6 @@ const createDatabaseDockerfile = (repoPath, databaseType) => {
   }
 
   fs.writeFileSync(path.join(repoPath, 'database', 'Dockerfile'), dockerfile);
-};
-
-//Checks for environment variables
-const readEnvFile = (repoPath) => {
-  const envPath = path.join(repoPath, '.env');
-  const envVariables = {};
-
-  if (fs.existsSync(envPath)) {
-    const envContent = fs.readFileSync(envPath, 'utf-8');
-    const lines = envContent.split('\n');
-
-    lines.forEach(line => {
-      if (line.trim() && !line.startsWith('#')) {
-        const [key, value] = line.split('=');
-        if (key && value) {
-          envVariables[key.trim()] = value.trim();
-        }
-      }
-    });
-  }
-
-  return envVariables;
 };
 
 // generate nginx config
@@ -416,26 +428,23 @@ const createDockerComposeFile = (repoPath, port, frontendTech, backendTech) => {
         ports:
           - "${port}:${port}"      
     `;
-  }else if (backendTech === 'python'){
+  }else if (backendTech === 'python-flask'){
     backendService = `
       backend:
         build:
           context: ./backend
           dockerfile: Dockerfile
         ports:
-          - "${port}:${port}"    
+          - "${port}:${port}"
+        command: ["gunicorn", "-b", ":5000", "app:app"]
+            
     `;
   }
 
   const dockerCompose = `
     services:
       ${frontendService.trim()}${frontendService ? '\n' : ''}
-      backend:
-        build:
-          context: ./backend
-          dockerfile: Dockerfile
-        ports:
-          - "${port}:${port}"
+      ${backendService.trim()}${backendService ? '\n' : ''}
       
       nginx:
         image: nginx:alpine
@@ -514,7 +523,7 @@ app.post('/api/clone-repo', (req, res) => {
             createNginxConfig(clonePath, port);
             
             // Create docker-compose.yml
-            createDockerComposeFile(clonePath, port, frontendTech);
+            createDockerComposeFile(clonePath, port, frontendTech, backendTech);
             
             //Automatically build and deploy
             // add cache ignore later
