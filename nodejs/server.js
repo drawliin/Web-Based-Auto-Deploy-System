@@ -159,7 +159,7 @@ const detectDatabase = (repoPath) => {
       if (fs.existsSync(packageJsonPath)) {
         const packageJson = require(packageJsonPath);
         if (packageJson.dependencies) {
-          if (packageJson.dependencies['mysql']) return 'mysql';
+          if (packageJson.dependencies['mysql'] || packageJson.dependencies['mysql2']) return 'mysql';
           if (packageJson.dependencies['pg']) return 'postgres';
           if (packageJson.dependencies['mongodb']) return 'mongodb';
           if (packageJson.dependencies['redis']) return 'redis';
@@ -276,10 +276,8 @@ const createDatabaseDockerfile = (repoPath, databaseType) => {
     case 'mysql':
       dockerfile = `
         FROM mysql:latest
-        ENV MYSQL_ROOT_PASSWORD=root
-        ENV MYSQL_DATABASE=mydb
         VOLUME /var/lib/mysql
-        EXPOSE 3306
+        EXPOSE 3307
       `;
       break;
 
@@ -405,6 +403,7 @@ const createDockerComposeFile = (repoPath, port, frontendTech, backendTech) => {
 
   let frontendService = '';
   let backendService = '';
+  let databaseService = '';
 
   if (frontendPath) {
     frontendService = `
@@ -426,7 +425,14 @@ const createDockerComposeFile = (repoPath, port, frontendTech, backendTech) => {
           context: ./backend
           dockerfile: Dockerfile
         ports:
-          - "${port}:${port}"      
+          - "${port}:${port}"  
+        depends_on:
+          - database      
+        environment:
+          - DB_HOST=db
+          - DB_USER=root
+          - DB_PASS=root
+          - DB_NAME=test
     `;
   }else if (backendTech === 'python-flask'){
     backendService = `
@@ -437,6 +443,13 @@ const createDockerComposeFile = (repoPath, port, frontendTech, backendTech) => {
         ports:
           - "${port}:${port}"
         command: ["gunicorn", "-b", ":5000", "app:app"]
+        depends_on:
+          - database
+        environment:
+          - DB_HOST=db
+          - DB_USER=root
+          - DB_PASS=root
+          - DB_NAME=test
             
     `;
   }
@@ -445,6 +458,8 @@ const createDockerComposeFile = (repoPath, port, frontendTech, backendTech) => {
     services:
       ${frontendService.trim()}${frontendService ? '\n' : ''}
       ${backendService.trim()}${backendService ? '\n' : ''}
+
+      
       
       nginx:
         image: nginx:alpine
