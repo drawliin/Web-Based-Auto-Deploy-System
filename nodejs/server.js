@@ -398,7 +398,7 @@ const getBuildPath = (frontendTech) => {
 };
 
 // Function to create a docker-compose.yml file
-const createDockerComposeFile = (repoPath, port, frontendTech, backendTech) => {
+const createDockerComposeFile = (repoPath, port, frontendTech, backendTech, databaseType) => {
   const frontendPath = getBuildPath(frontendTech);  // Get the build path dynamically
 
   let frontendService = '';
@@ -427,14 +427,16 @@ const createDockerComposeFile = (repoPath, port, frontendTech, backendTech) => {
         ports:
           - "${port}:${port}"  
         depends_on:
-          - database      
+          db:
+            condition: service_healthy
         environment:
           - DB_HOST=db
           - DB_USER=root
           - DB_PASS=root
           - DB_NAME=test
+        
     `;
-  }else if (backendTech === 'python-flask'){
+  }else if (backendTech === 'python-flask'){ 
     backendService = `
       backend:
         build:
@@ -444,7 +446,7 @@ const createDockerComposeFile = (repoPath, port, frontendTech, backendTech) => {
           - "${port}:${port}"
         command: ["gunicorn", "-b", ":5000", "app:app"]
         depends_on:
-          - database
+          - db
         environment:
           - DB_HOST=db
           - DB_USER=root
@@ -453,18 +455,43 @@ const createDockerComposeFile = (repoPath, port, frontendTech, backendTech) => {
             
     `;
   }
+  switch(databaseType){
+    case "mysql":
+    case "mysql2":
+      databaseService = `
+        db:
+          build:
+            context: ./database
+            dockerfile: Dockerfile
+          environment:
+            MYSQL_ROOT_PASSWORD: root
+            MYSQL_DATABASE: test
+          ports:
+            - "3307:3307"
+          volumes:
+            - db-data:/var/lib/mysql
+            - ./database/init:/docker-entrypoint-initdb.d
+          healthcheck:
+            test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+            interval: 10s
+            retries: 5
+            start_period: 30s
+      `;
+      break;
+    default:
+      throw new Error("Can't create database service");
+  }
 
   const dockerCompose = `
     services:
       ${frontendService.trim()}${frontendService ? '\n' : ''}
       ${backendService.trim()}${backendService ? '\n' : ''}
+      ${databaseService.trim()}${databaseService ? '\n' : ''}
 
-      
-      
       nginx:
         image: nginx:alpine
         volumes:
-          - ./nginx.conf:/etc/nginx/nginx.conf:ro  # Mount Nginx config file
+          - ./nginx.conf:/etc/nginx/nginx.conf:ro
           - ./frontend/${frontendPath}:/usr/share/nginx/html  # Serve frontend files (Ensure frontendPath is correct)
           
         ports:
@@ -472,6 +499,7 @@ const createDockerComposeFile = (repoPath, port, frontendTech, backendTech) => {
         depends_on:
           - backend
           ${frontendPath ? "- frontend" : ""} # Add frontend only if it exists
+          - db
 
 networks:
   app-network:
@@ -520,7 +548,7 @@ app.post('/api/clone-repo', (req, res) => {
           // Detect frontend and backend technologies
             const frontendTech = detectFrontendTechnology(clonePath);
             const backendTech = detectBackendTechnology(clonePath);
-            //const databaseTech = detectDatabase(clonePath);
+            const databaseTech = detectDatabase(clonePath);
 
             const port = detectBackendPort(clonePath, backendTech);
             
@@ -529,7 +557,7 @@ app.post('/api/clone-repo', (req, res) => {
             // Create Dockerfiles for frontend, backend and database
             createFrontendDockerfile(clonePath, frontendTech);
             createBackendDockerfile(clonePath, backendTech, port);
-            //createDatabaseDockerfile(clonePath, databaseTech);
+            createDatabaseDockerfile(clonePath, databaseTech);
             
             // Create dockerignore
             createDockerignore(clonePath);
@@ -538,7 +566,7 @@ app.post('/api/clone-repo', (req, res) => {
             createNginxConfig(clonePath, port);
             
             // Create docker-compose.yml
-            createDockerComposeFile(clonePath, port, frontendTech, backendTech);
+            createDockerComposeFile(clonePath, port, frontendTech, backendTech, databaseTech);
             
             //Automatically build and deploy
             // add cache ignore later
