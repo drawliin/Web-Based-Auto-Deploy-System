@@ -421,7 +421,7 @@ const createDockerComposeFile = (repoPath, frontendTech, backendTech, databaseTy
             - DB_HOST=db
             - DB_USER=root
             - DB_PASS=root
-            - DB_NAME=test
+            - DB_NAME=mydb
             - PORT=4002
       `;
       databaseService = `
@@ -431,7 +431,7 @@ const createDockerComposeFile = (repoPath, frontendTech, backendTech, databaseTy
             dockerfile: Dockerfile
           environment:
             MYSQL_ROOT_PASSWORD: root
-            MYSQL_DATABASE: test
+            MYSQL_DATABASE: mydb
           ports:
             - "3307:3307"
           volumes:
