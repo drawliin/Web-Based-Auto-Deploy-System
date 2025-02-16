@@ -274,9 +274,6 @@ const createDatabaseDockerfile = (repoPath, databaseType) => {
     case 'postgres':
       dockerfile = `
         FROM postgres:latest
-        ENV POSTGRES_USER=root
-        ENV POSTGRES_PASSWORD=root
-        ENV POSTGRES_DB=mydb
         VOLUME /var/lib/postgresql/data
         EXPOSE 5432
       `;
@@ -409,7 +406,7 @@ const createDockerComposeFile = (repoPath, frontendTech, backendTech, databaseTy
   }
 
   switch(`${backendTech}-${databaseType}`){
-    case("nodejs-mysql"):
+    case "nodejs-mysql":
       backendService = `
         backend:
           build:
@@ -447,7 +444,7 @@ const createDockerComposeFile = (repoPath, frontendTech, backendTech, databaseTy
             start_period: 30s
       `;
       break;
-    case('nodejs-mongodb'):
+    case 'nodejs-mongodb':
       backendService = `
         backend:
           build:
@@ -472,6 +469,45 @@ const createDockerComposeFile = (repoPath, frontendTech, backendTech, databaseTy
           volumes:
             - db-data:/data/db
             - ./database/init:/docker-entrypoint-initdb.d
+      `;
+      break;
+    case "nodejs-postgres":
+      backendService = `
+        backend:
+          build:
+            context: ./backend
+            dockerfile: Dockerfile
+          ports:
+            - "4002:4002"  
+          depends_on:
+           - db
+          environment:
+            - PORT=4002
+            - DB_HOST=db
+            - DB_USER=postgres
+            - DB_PASS=postgres
+            - DB_NAME=mydb
+      `;
+      databaseService = `
+        db:
+          build:
+            context: ./database
+            dockerfile: Dockerfile
+
+          ports:
+            - "5432:5432"
+          environment:
+            POSTGRES_USER: postgres
+            POSTGRES_PASSWORD: postgres
+            POSTGRES_DB: mydb
+          volumes:
+            - db-data:/var/lib/postgresql/data
+            - ./database/init:/docker-entrypoint-initdb.d
+          healthcheck:
+            test: ["CMD-SHELL", "pg_isready -U postgres -d mydb"]
+            interval: 10s
+            retries: 5
+            start_period: 30s
       `;
       break;
     default:
