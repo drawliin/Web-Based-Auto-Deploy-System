@@ -1,0 +1,17 @@
+python backend service
+
+backendService = `
+      backend:
+        build:
+          context: ./backend
+          dockerfile: Dockerfile
+        ports:
+          - "${port}:${port}"
+        command: ["gunicorn", "-b", ":5000", "app:app"]
+        depends_on:
+          - db
+        environment:
+          - DB_HOST=db
+          - DB_USER=root
+          - DB_PASS=root
+          - DB_NAME=test

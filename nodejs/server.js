@@ -111,14 +111,6 @@ const detectPythonEntryFile = (repoPath) => {
 
 
 const detectBackendPort = (repoPath, technology) => {
-  // 1️⃣ Check .env file first
-  const envFilePath = path.join(repoPath, 'backend', '.env');
-  if (fs.existsSync(envFilePath)) {
-      const envContent = fs.readFileSync(envFilePath, 'utf-8');
-      const portMatch = envContent.match(/\w*PORT\s*=\s*(\d+)/);
-      if (portMatch) return parseInt(portMatch[1], 10);
-  }
-
   // 2️⃣ Look for port definitions in common backend files
   const techPortPatterns = {
       'nodejs': /listen\s*\(\s*(\d+)/,  // app.listen(3000)
@@ -161,7 +153,7 @@ const detectDatabase = (repoPath) => {
         if (packageJson.dependencies) {
           if (packageJson.dependencies['mysql'] || packageJson.dependencies['mysql2']) return 'mysql';
           if (packageJson.dependencies['pg']) return 'postgres';
-          if (packageJson.dependencies['mongodb']) return 'mongodb';
+          if (packageJson.dependencies['mongodb'] || packageJson.dependencies['mongoose']) return 'mongodb';
           if (packageJson.dependencies['redis']) return 'redis';
           if (packageJson.dependencies['sqlite3']) return 'sqlite';
           if (packageJson.dependencies['sequelize']) return 'sequelize';
@@ -228,7 +220,7 @@ const createFrontendDockerfile = (repoPath) => {
 };
 
 // Function to create a Dockerfile for the backend based on technology
-const createBackendDockerfile = (repoPath, backendTech, port) => {
+const createBackendDockerfile = (repoPath, backendTech) => {
   let dockerfile = '';
   switch (backendTech) {
     case 'nodejs': {
@@ -240,7 +232,6 @@ const createBackendDockerfile = (repoPath, backendTech, port) => {
         COPY package*.json ./
         RUN npm install
         COPY ./ ./
-        EXPOSE ${port}
         CMD ["node", "${packageJson.main}"]
       `;
       break;
@@ -256,7 +247,6 @@ const createBackendDockerfile = (repoPath, backendTech, port) => {
         WORKDIR /app
         COPY ./ ./
         RUN pip install --no-cache-dir -r ./requirements.txt
-        EXPOSE ${port}
         CMD ["python", "${pythonEntryFile[0]}"]
       `;
       break;
@@ -295,9 +285,6 @@ const createDatabaseDockerfile = (repoPath, databaseType) => {
     case 'mongodb':
       dockerfile = `
         FROM mongo:latest
-        ENV MONGO_INITDB_ROOT_USERNAME=root
-        ENV MONGO_INITDB_ROOT_PASSWORD=root
-        ENV MONGO_INITDB_DATABASE=mydb
         VOLUME /data/db
         EXPOSE 27017
       `;
@@ -319,7 +306,7 @@ const createDatabaseDockerfile = (repoPath, databaseType) => {
 };
 
 // generate nginx config
-const createNginxConfig = (repoPath, port) => {
+const createNginxConfig = (repoPath) => {
   const nginxConfig = `
     events {}
 
@@ -341,7 +328,7 @@ const createNginxConfig = (repoPath, port) => {
 
           # Forward all other requests to Backend
           location /api/ {
-              proxy_pass http://backend:${port}/;
+              proxy_pass http://backend:4002/;
               proxy_set_header Host $host;
               proxy_set_header X-Real-IP $remote_addr;
               proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
@@ -398,7 +385,7 @@ const getBuildPath = (frontendTech) => {
 };
 
 // Function to create a docker-compose.yml file
-const createDockerComposeFile = (repoPath, port, frontendTech, backendTech, databaseType) => {
+const createDockerComposeFile = (repoPath, frontendTech, backendTech, databaseType) => {
   const frontendPath = getBuildPath(frontendTech);  // Get the build path dynamically
 
   let frontendService = '';
@@ -414,50 +401,32 @@ const createDockerComposeFile = (repoPath, port, frontendTech, backendTech, data
         volumes:
           - ./frontend/${frontendPath}:/app/${frontendPath}  # Valid volume mapping
         command: ["npm", "run", "build"]
+        environment:
+          - PORT=4002
         depends_on:
           - backend
     `;
   }
-  if (backendTech === 'nodejs'){
-    backendService = `
-      backend:
-        build:
-          context: ./backend
-          dockerfile: Dockerfile
-        ports:
-          - "${port}:${port}"  
-        depends_on:
-          db:
-            condition: service_healthy
-        environment:
-          - DB_HOST=db
-          - DB_USER=root
-          - DB_PASS=root
-          - DB_NAME=test
-        
-    `;
-  }else if (backendTech === 'python-flask'){ 
-    backendService = `
-      backend:
-        build:
-          context: ./backend
-          dockerfile: Dockerfile
-        ports:
-          - "${port}:${port}"
-        command: ["gunicorn", "-b", ":5000", "app:app"]
-        depends_on:
-          - db
-        environment:
-          - DB_HOST=db
-          - DB_USER=root
-          - DB_PASS=root
-          - DB_NAME=test
-            
-    `;
-  }
-  switch(databaseType){
-    case "mysql":
-    case "mysql2":
+
+  switch(`${backendTech}-${databaseType}`){
+    case("nodejs-mysql"):
+      backendService = `
+        backend:
+          build:
+            context: ./backend
+            dockerfile: Dockerfile
+          ports:
+            - "4002:4002"  
+          depends_on:
+            db:
+              condition: service_healthy
+          environment:
+            - DB_HOST=db
+            - DB_USER=root
+            - DB_PASS=root
+            - DB_NAME=test
+            - PORT=4002
+      `;
       databaseService = `
         db:
           build:
@@ -472,15 +441,44 @@ const createDockerComposeFile = (repoPath, port, frontendTech, backendTech, data
             - db-data:/var/lib/mysql
             - ./database/init:/docker-entrypoint-initdb.d
           healthcheck:
-            test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+            test: ["CMD", "mysqladmin", "ping", "-h", "127.0.0.1"]
             interval: 10s
             retries: 5
             start_period: 30s
       `;
       break;
+    case('nodejs-mongodb'):
+      backendService = `
+        backend:
+          build:
+            context: ./backend
+            dockerfile: Dockerfile
+          ports:
+            - "4002:4002"  
+          depends_on:
+           - db
+          environment:
+            - PORT=4002
+            - MONGO_URI=mongodb://db:27017
+      `;
+      databaseService = `
+        db:
+          build:
+            context: ./database
+            dockerfile: Dockerfile
+
+          ports:
+            - "27017:27017"
+          volumes:
+            - db-data:/data/db
+            - ./database/init:/docker-entrypoint-initdb.d
+      `;
+      break;
     default:
-      throw new Error("Can't create database service");
+      throw new Error("Can't create backend or database services");
   }
+  
+
 
   const dockerCompose = `
     services:
@@ -498,7 +496,7 @@ const createDockerComposeFile = (repoPath, port, frontendTech, backendTech, data
           - "8080:80"  # Expose Nginx on port 8080
         depends_on:
           - backend
-          ${frontendPath ? "- frontend" : ""} # Add frontend only if it exists
+          ${frontendPath ? "- frontend" : ""}
           - db
 
 networks:
@@ -550,23 +548,25 @@ app.post('/api/clone-repo', (req, res) => {
             const backendTech = detectBackendTechnology(clonePath);
             const databaseTech = detectDatabase(clonePath);
 
-            const port = detectBackendPort(clonePath, backendTech);
-            
-            
+
+            //const port = detectBackendPort(clonePath, backendTech);
+            //console.log('port detected: ', port);
+
 
             // Create Dockerfiles for frontend, backend and database
             createFrontendDockerfile(clonePath, frontendTech);
-            createBackendDockerfile(clonePath, backendTech, port);
+            createBackendDockerfile(clonePath, backendTech);
             createDatabaseDockerfile(clonePath, databaseTech);
+
             
             // Create dockerignore
             createDockerignore(clonePath);
 
             //create nginx.conf
-            createNginxConfig(clonePath, port);
+            createNginxConfig(clonePath);
             
             // Create docker-compose.yml
-            createDockerComposeFile(clonePath, port, frontendTech, backendTech, databaseTech);
+            createDockerComposeFile(clonePath, frontendTech, backendTech, databaseTech);
             
             //Automatically build and deploy
             // add cache ignore later
