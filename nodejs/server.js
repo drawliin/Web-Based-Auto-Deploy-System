@@ -529,10 +529,10 @@ const createDockerComposeFile = (repoPath, frontendTech, backendTech, databaseTy
             db:
               condition: service_healthy
           environment:
-            - MYSQL_HOST=db
-            - MYSQL_USER=root
-            - MYSQL_PASSWORD=root
-            - MYSQL_DB=mydb
+            - DB_HOST=db
+            - DB_USER=root
+            - DB_PASSWORD=root
+            - DB_NAME=mydb
             - PORT=4002
       `;
       databaseService=`
@@ -555,7 +555,34 @@ const createDockerComposeFile = (repoPath, frontendTech, backendTech, databaseTy
             start_period: 30s
       `;
       break;
-    
+    case "python-flask-mongodb": 
+      backendService = `
+        backend:
+            build:
+              context: ./backend
+              dockerfile: Dockerfile
+            ports:
+              - "4002:4002"
+            command: ["gunicorn", "-b", ":4002", "app:app"]
+            depends_on:
+              - db
+            environment:
+              - MONGO_URI=mongodb://db:27017
+              - PORT=4002
+      `;
+      databaseService = `
+        db:
+          build:
+            context: ./database
+            dockerfile: Dockerfile
+
+          ports:
+            - "27017:27017"
+          volumes:
+            - db-data:/data/db
+            - ./database/init:/docker-entrypoint-initdb.d
+      `;
+      break;
     default:
       throw new Error("Can't create backend or database services");
   }
