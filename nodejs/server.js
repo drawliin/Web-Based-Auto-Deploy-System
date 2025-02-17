@@ -160,23 +160,15 @@ const detectDatabase = (repoPath) => {
           if (packageJson.dependencies['typeorm']) return 'typeorm';
         }
       }
-      break; // End of Node.js case
+      break; // End of Nodejs case
     }
-    case 'php': {
-      const composerJsonPath = path.join(repoPath, 'backend', 'composer.json');
-      if (fs.existsSync(composerJsonPath)) {
-        const composerJson = require(composerJsonPath);
-        if (composerJson.require) {
-          if (composerJson.require['mysql']) return 'mysql';
-          if (composerJson.require['pgsql']) return 'postgres';
-        }
-      }
-      break; // End of PHP case
-    }
+
     case 'python-flask': {
       const requirementsPath = path.join(repoPath, 'backend', 'requirements.txt');
       if (fs.existsSync(requirementsPath)) {
-        const requirements = fs.readFileSync(requirementsPath, 'utf-8');
+        let buffer = fs.readFileSync(requirementsPath);
+        let requirements = buffer.toString('utf16le');
+        requirements = requirements.replace(/\r/g, '').trim().toLowerCase();
         if (requirements.includes('mysqlclient')) return 'mysql';
         if (requirements.includes('psycopg2')) return 'postgres';
         if (requirements.includes('pymongo')) return 'mongodb';
@@ -184,7 +176,7 @@ const detectDatabase = (repoPath) => {
       break; // End of Python case
     }
     default:
-      break;
+      throw new Error('No database found!!');
   }
 
   // Step 3: If no database is found in the backend, check the database folder for .env
@@ -330,6 +322,14 @@ const createNginxConfig = (repoPath) => {
               proxy_set_header X-Real-IP $remote_addr;
               proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
           }
+          
+          location /socket.io/ {
+              proxy_pass http://backend:4002;
+              proxy_http_version 1.1;
+              proxy_set_header Upgrade $http_upgrade;
+              proxy_set_header Connection "Upgrade";
+          }
+
       }
     }
 
@@ -383,13 +383,17 @@ const getBuildPath = (frontendTech) => {
 
 // Function to create a docker-compose.yml file
 const createDockerComposeFile = (repoPath, frontendTech, backendTech, databaseType) => {
-  const frontendPath = getBuildPath(frontendTech);  // Get the build path dynamically
+  const frontendPath = getBuildPath(frontendTech);  
 
   let frontendService = '';
+  let frontendENV;
   let backendService = '';
   let databaseService = '';
 
   if (frontendPath) {
+    if(frontendTech == 'react' || frontendTech == 'react-vite'){
+      frontendENV = 'REACT_APP_PORT';
+    }
     frontendService = `
       frontend:
         build:
@@ -399,7 +403,7 @@ const createDockerComposeFile = (repoPath, frontendTech, backendTech, databaseTy
           - ./frontend/${frontendPath}:/app/${frontendPath}  # Valid volume mapping
         command: ["npm", "run", "build"]
         environment:
-          - PORT=4002
+          - ${frontendENV}=4002
         depends_on:
           - backend
     `;
@@ -480,7 +484,9 @@ const createDockerComposeFile = (repoPath, frontendTech, backendTech, databaseTy
           ports:
             - "4002:4002"  
           depends_on:
-           - db
+            db:
+              condition: service_healthy
+
           environment:
             - PORT=4002
             - DB_HOST=db
@@ -510,6 +516,46 @@ const createDockerComposeFile = (repoPath, frontendTech, backendTech, databaseTy
             start_period: 30s
       `;
       break;
+    case 'python-flask-mysql':
+      backendService=`
+        backend:
+          build:
+            context: ./backend
+            dockerfile: Dockerfile
+          ports:
+            - "4002:4002"
+          command: ["gunicorn", "-b", ":4002", "app:app"]
+          depends_on:
+            db:
+              condition: service_healthy
+          environment:
+            - MYSQL_HOST=db
+            - MYSQL_USER=root
+            - MYSQL_PASSWORD=root
+            - MYSQL_DB=mydb
+            - PORT=4002
+      `;
+      databaseService=`
+        db:
+          build:
+            context: ./database
+            dockerfile: Dockerfile
+          environment:
+            MYSQL_ROOT_PASSWORD: root
+            MYSQL_DATABASE: mydb
+          ports:
+            - "3307:3307"
+          volumes:
+            - db-data:/var/lib/mysql
+            - ./database/init:/docker-entrypoint-initdb.d
+          healthcheck:
+            test: ["CMD", "mysqladmin", "ping", "-h", "127.0.0.1"]
+            interval: 10s
+            retries: 5
+            start_period: 30s
+      `;
+      break;
+    
     default:
       throw new Error("Can't create backend or database services");
   }
@@ -562,7 +608,6 @@ const checkNginx = async () => {
   }
 };
 
-
 // Clone the repository based on the URL provided in the request
 app.post('/api/clone-repo', (req, res) => {
   const { repoUrl } = req.body;
@@ -583,6 +628,8 @@ app.post('/api/clone-repo', (req, res) => {
             const frontendTech = detectFrontendTechnology(clonePath);
             const backendTech = detectBackendTechnology(clonePath);
             const databaseTech = detectDatabase(clonePath);
+
+            console.log(frontendTech, backendTech, databaseTech);
 
 
             //const port = detectBackendPort(clonePath, backendTech);

@@ -1,11 +1,9 @@
-import React, { useState, } from 'react';
+import React, { useState} from 'react';
 
 
 function App() {
   const [repoUrl, setRepoUrl] = useState('');
   const [message, setMessage] = useState('');
-
-  
 
   const handleClone = async () => {
     setMessage('Start Cloning Repo...');
@@ -19,7 +17,9 @@ function App() {
       });
 
       const data = await response.json();
-      setMessage(data.message);
+      if(data.message){
+        setMessage(data.message);
+      }
     }catch (error) {
       console.log('Error cloning repo:', error);
       setMessage('Server is down. Please turn it on');
