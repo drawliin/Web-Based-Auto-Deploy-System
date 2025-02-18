@@ -29,11 +29,10 @@ function App() {
   }, [wsMessages]);
 
   const handleClone = async () => {
-    if(repoUrl){
+    if (repoUrl) {
       setDisableInput(true);
       setWsMessages([]);
       setShowTerminal(true);
-  
       try {
         await fetch('http://localhost:5001/api/clone-repo', {
           method: 'POST',
@@ -49,32 +48,32 @@ function App() {
 
   const getMessageClass = (msg) => {
     if (msg.includes('🚨')) {
-      return 'error-message';  // Error messages (red)
+      return 'error-message';
     } else if (msg.includes('<a')) {
-      return 'link-message';  // Link messages (orange)
+      return 'link-message';
     } else {
-      return '';  // Regular messages
+      return '';
     }
   };
 
   return (
     <div className="app-container">
-
       <div className={`input-container ${showTerminal ? 'moved-up' : ''}`}>
-        <h1>Clone a GitHub Repo</h1>
-        <input
-          type="text"
-          placeholder="Enter GitHub Repo URL"
-          value={repoUrl}
-          onChange={(e) => setRepoUrl(e.target.value)}
-          disabled={disableInput}
-        />
-        <button onClick={handleClone} disabled={disableInput}>
-          Clone Repo
-        </button>
+        <h1 className="title">🚀 Clone a GitHub Repo</h1>
+        <div className="input-box">
+          <input
+            type="text"
+            placeholder="Enter GitHub Repo URL"
+            value={repoUrl}
+            onChange={(e) => setRepoUrl(e.target.value)}
+            disabled={disableInput}
+          />
+          <button onClick={handleClone} disabled={disableInput}>
+            Clone Repo
+          </button>
+        </div>
       </div>
 
-      
       {showTerminal && (
         <div ref={terminalRef} className={`terminal ${showTerminal ? 'show-terminal' : ''}`}>
           {wsMessages.map((msg, index) => (

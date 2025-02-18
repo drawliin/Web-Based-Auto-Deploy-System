@@ -1,20 +1,38 @@
-/* Centering the app */
+@import url('https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;600;700&display=swap');
+
+body{
+    font-family: 'Poppins', sans-serif;
+}
+
+*{
+    margin: 0;
+    padding: 0;
+}
+/* Immersive Background */
 .app-container {
     display: flex;
     flex-direction: column;
     align-items: center;
     justify-content: center;
     height: 100vh;
-    background-color: #f4f4f4;
+    background: linear-gradient(135deg, #1e1e1e, #2c2c54);
     transition: padding 0.5s ease-in-out;
 }
 
-/* Styling the input and button */
+/* Modern Title Styling */
+.title {
+    font-size: 2.8rem;
+    font-weight: bold;
+    color: #ffffff;
+    text-shadow: 0px 0px 10px rgba(0, 255, 255, 0.8);
+    margin-bottom: 20px;
+}
+
+/* Input Container Styling */
 .input-container {
     display: flex;
     flex-direction: column;
     align-items: center;
-    gap: 10px;
     transition: transform 0.5s ease-in-out;
 }
 
@@ -23,75 +41,110 @@
     transform: translateY(-50px);
 }
 
-/* Input and button styles */
-.input-container input {
-    padding: 8px;
-    width: 300px;
-    border: 1px solid #ccc;
-    border-radius: 5px;
+/* Glassmorphism Input Box */
+.input-box {
+    background: rgba(255, 255, 255, 0.1);
+    border-radius: 12px;
+    padding: 15px;
+    backdrop-filter: blur(10px);
+    box-shadow: 0px 4px 10px rgba(255, 255, 255, 0.2);
+    display: flex;
+    gap: 10px;
 }
 
-.input-container button {
-    padding: 8px 12px;
-    background-color: #007bff;
+/* Input Field */
+.input-box input {
+    padding: 14px;
+    width: 255px;
+    border: none;
+    border-radius: 5px;
+    outline: none;
+    background: rgba(255, 255, 255, 0.2);
+    color: #fff;
+    font-size: 1.05rem;
+    transition: all 0.3s ease-in-out;
+}
+
+.input-box input::placeholder {
+    color: #bbb;
+}
+
+.input-box input:focus {
+    background: rgba(255, 255, 255, 0.3);
+    box-shadow: 0px 0px 8px rgba(0, 255, 255, 0.8);
+}
+
+/* Clone Button */
+.input-box button {
+    padding: 10px 15px;
+    background: #00bcd4;
     color: white;
     border: none;
     border-radius: 5px;
     cursor: pointer;
+    font-size: 1rem;
+    font-weight: bold;
+    transition: all 0.3s ease-in-out;
 }
 
-.input-container button:disabled {
-    background-color: #ccc;
+.input-box button:hover {
+    background: #0097a7;
+}
+
+.input-box button:disabled {
+    background-color: #555;
     cursor: not-allowed;
 }
 
 /* Terminal Styling */
 .terminal {
-    background-color: #1e1e1e;
+    background: rgba(0, 0, 0, 0.8);
     color: #00ff00;
     font-family: "Courier New", monospace;
     padding: 20px;
     width: 60%;
     height: 350px;
     overflow-y: auto;
-    border-radius: 5px;
-    border: 1px solid #555;
+    border-radius: 10px;
+    border: 1px solid #00bcd4;
     white-space: pre-wrap;
     text-align: left;
-    box-shadow: 0px 4px 10px rgba(0, 0, 0, 0.2);
+    box-shadow: 0px 4px 10px rgba(0, 255, 255, 0.2);
     opacity: 0;
     transform: scale(0.9);
     transition: opacity 0.5s ease-in-out, transform 0.5s ease-in-out;
 }
 
-/* Styling for error messages (red) */
+/* Error Messages */
 .terminal .error-message {
     color: red;
     font-weight: bold;
 }
-  
-  /* Styling for link messages (orange) */
+
+/* Link Messages */
 .terminal .link-message {
     color: orange;
     font-weight: bold;
 }
+
 .terminal .link-message a {
     color: orange;
     text-decoration: underline;
     font-weight: bold;
-  }
-  
+}
+
 .terminal .link-message a:hover {
     color: yellow;
     text-decoration: none;
 }
-/* Smoothly show terminal */
+
+/* Smoothly Show Terminal */
 .show-terminal {
     opacity: 1;
     transform: scale(1);
 }
 
-/* Makes terminal text smooth */
+/* Terminal Message Spacing */
 .terminal div {
     margin-top: 10px;
     margin-bottom: 5px;
