@@ -1,42 +1,93 @@
-import React, { useState} from 'react';
+import React, { useState, useEffect, useRef } from 'react';
+import { io } from 'socket.io-client';
+import './App.css';
 
+const socket = io('http://localhost:5001');
 
 function App() {
   const [repoUrl, setRepoUrl] = useState('');
-  const [message, setMessage] = useState('');
+  const [disableInput, setDisableInput] = useState(false);
+  const [wsMessages, setWsMessages] = useState([]);
+  const [showTerminal, setShowTerminal] = useState(false);
+  const terminalRef = useRef(null);
+
+  useEffect(() => {
+    socket.on('status', (message) => {
+      setWsMessages((prevMessages) => [...prevMessages, message]);
+      setShowTerminal(true);
+    });
+
+    return () => {
+      socket.off('status');
+    };
+  }, []);
+
+  useEffect(() => {
+    if (terminalRef.current) {
+      terminalRef.current.scrollTop = terminalRef.current.scrollHeight;
+    }
+  }, [wsMessages]);
 
   const handleClone = async () => {
-    setMessage('Start Cloning Repo...');
-    try {
-      const response = await fetch('http://localhost:5001/api/clone-repo', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({ repoUrl }),
-      });
-
-      const data = await response.json();
-      if(data.message){
-        setMessage(data.message);
+    if(repoUrl){
+      setDisableInput(true);
+      setWsMessages([]);
+      setShowTerminal(true);
+  
+      try {
+        await fetch('http://localhost:5001/api/clone-repo', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ repoUrl }),
+        });
+      } catch (error) {
+        console.log('Error cloning repo:', error);
+        setDisableInput(false);
       }
-    }catch (error) {
-      console.log('Error cloning repo:', error);
-      setMessage('Server is down. Please turn it on');
+    }
+  };
+
+  const getMessageClass = (msg) => {
+    if (msg.includes('🚨')) {
+      return 'error-message';  // Error messages (red)
+    } else if (msg.includes('<a')) {
+      return 'link-message';  // Link messages (orange)
+    } else {
+      return '';  // Regular messages
     }
   };
 
   return (
-    <div>
-      <h1>Clone a GitHub Repo</h1>
-      <input
-        type="text"
-        placeholder="Enter GitHub Repo URL"
-        value={repoUrl}
-        onChange={(e) => setRepoUrl(e.target.value)}
-      />
-      <button onClick={handleClone} disabled={message === 'Server is down. Please turn it on' || message === 'Start Cloning Repo...'}>Clone Repo</button>
-      {message && <div dangerouslySetInnerHTML={{ __html: message }} />}
+    <div className="app-container">
+
+      <div className={`input-container ${showTerminal ? 'moved-up' : ''}`}>
+        <h1>Clone a GitHub Repo</h1>
+        <input
+          type="text"
+          placeholder="Enter GitHub Repo URL"
+          value={repoUrl}
+          onChange={(e) => setRepoUrl(e.target.value)}
+          disabled={disableInput}
+        />
+        <button onClick={handleClone} disabled={disableInput}>
+          Clone Repo
+        </button>
+      </div>
+
+      
+      {showTerminal && (
+        <div ref={terminalRef} className={`terminal ${showTerminal ? 'show-terminal' : ''}`}>
+          {wsMessages.map((msg, index) => (
+            <div key={index} className={getMessageClass(msg)}>
+              {msg.includes('<a') ? (
+                <span dangerouslySetInnerHTML={{ __html: msg }} />
+              ) : (
+                msg
+              )}
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 }

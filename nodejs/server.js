@@ -4,13 +4,41 @@ const simpleGit = require('simple-git');
 const fs = require('fs');
 const { exec } = require('child_process');
 const path = require('path');
+const http = require('http'); // Import HTTP module
+const { Server } = require('socket.io'); // Import socket.io
+
 
 const app = express();
 const port = 5001;
 
+const server = http.createServer(app); // Create HTTP server
+const io = new Server(server, {
+    cors: {
+        origin: ["http://localhost:5174", "http://localhost:5173"], // Allow all origins (Change this in production)
+        methods: ["GET", "POST"]
+    }
+});
+
 // Enable CORS
 app.use(cors());
 app.use(express.json());
+
+
+io.on('connection', (socket) => {
+  console.log('Client connected');
+  socket.on('disconnect', () => {
+      console.log('Client disconnected');
+  });
+});
+
+// Function to send WebSocket status updates
+const sendStatus = (message) => {
+  io.emit('status', message);
+};
+
+const sendStatusDelayed = (message, delay = 1000) => {
+  setTimeout(() => sendStatus(message), delay);
+};
 
 // Initialize simple-git
 const git = simpleGit();
@@ -318,14 +346,6 @@ const createNginxConfig = (repoPath) => {
               proxy_set_header X-Real-IP $remote_addr;
               proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
           }
-          
-          location /socket.io/ {
-              proxy_pass http://backend:4002;
-              proxy_http_version 1.1;
-              proxy_set_header Upgrade $http_upgrade;
-              proxy_set_header Connection "Upgrade";
-          }
-
       }
     }
 
@@ -636,11 +656,13 @@ app.post('/api/clone-repo', (req, res) => {
   const { repoUrl } = req.body;
 
   if (!repoUrl) {
-    return res.status(400).json({ message: 'Repository URL is required.' });
+    sendStatus('Repository URL is required'); 
+    return;
   }
 
   // Create a unique folder for the new repository
   const clonePath = generateUniqueFolderName(repoUrl);
+  sendStatus('📥 Cloning repository...'); 
 
   // Clone the repository
   git.clone(repoUrl, clonePath)
@@ -651,7 +673,8 @@ app.post('/api/clone-repo', (req, res) => {
         if (!isFullStackApp(clonePath)) {
           throw new Error("This project does not have a valid full-stack app structure.");
         }
-            // Detect frontend and backend technologies
+              sendStatusDelayed('✅ Repository cloned successfully!', 1000);
+              // Detect frontend and backend technologies
               const frontendTech = detectFrontendTechnology(clonePath);
               const backendTech = detectBackendTechnology(clonePath);
               const databaseTech = detectDatabase(clonePath, backendTech);
@@ -659,25 +682,26 @@ app.post('/api/clone-repo', (req, res) => {
               console.log(frontendTech, backendTech, databaseTech);
 
               if(frontendTech === 'unknown'){
-                throw new Error('🚨 Frontend technology not detected. Deployment cannot proceed.')
+                throw new Error('Frontend technology not detected. Deployment cannot proceed.')
               }
               if(backendTech === 'unknown'){
-                throw new Error('🚨 Backend technology not detected. Deployment cannot proceed.')
+                throw new Error('Backend technology not detected. Deployment cannot proceed.')
               }
               if(databaseTech === 'unknown'){
-                throw new Error('🚨 Database technology not detected. Deployment cannot proceed.')
+                throw new Error('Database technology not detected. Deployment cannot proceed.')
               }
   
   
               //const port = detectBackendPort(clonePath, backendTech);
               //console.log('port detected: ', port);
   
-  
+
               // Create Dockerfiles for frontend, backend and database
+              sendStatusDelayed('⚙️ Creating Dockerfiles...', 2000);
               createFrontendDockerfile(clonePath, frontendTech);
               createBackendDockerfile(clonePath, backendTech);
               createDatabaseDockerfile(clonePath, databaseTech);
-  
+              sendStatusDelayed('✅ Dockerfiles created!', 4000);
               
               // Create dockerignore
               createDockerignore(clonePath);
@@ -685,18 +709,21 @@ app.post('/api/clone-repo', (req, res) => {
               //create nginx.conf
               createNginxConfig(clonePath);
               
+              sendStatusDelayed('📦 Creating docker-compose...', 5000);
               // Create docker-compose.yml
               createDockerComposeFile(clonePath, frontendTech, backendTech, databaseTech);
+              sendStatusDelayed('✅ Docker-compose created!', 7000);
               
+              sendStatusDelayed('🚀 Starting Deployment...', 9000);
               //Automatically build and deploy
               await new Promise((resolve, reject) => {
                 exec(`cd ${clonePath} && docker-compose up --build -d`, (err, stdout, stderr) => {
                     if (err) {
                         console.log("Deployment Error:", stderr);
                         if (stderr.includes("port is already allocated")) {
-                            reject(new Error("🚨 Deployment Failed: Port Conflict. Another service is using the required port."));
+                            reject(new Error("Deployment Failed: Port Conflict. Another service is using the required port."));
                         } else if (stderr.includes("error during connect")) {
-                            reject(new Error("🚨 Docker Desktop is not running. Please start Docker and try again."));
+                            reject(new Error("Docker Desktop is not running. Please start Docker and try again."));
                         } else {
                             reject(new Error(`Error deploying application: ${stderr}`));
                         }
@@ -721,28 +748,32 @@ app.post('/api/clone-repo', (req, res) => {
             if (!nginxReady) {
                 throw new Error("🚨 Deployment Failed: Nginx did not become ready within the expected time.");
             }
-
+            
+            sendStatus('🚀 Deployment completed successfully!');
             console.log('Ready to go');
-            res.status(200).json({
-                message: `Application deployed successfully! <a href='http://localhost:8080' target='_blank'>Deployed Page</a>`,
-            });
+            sendStatus(`🔗 <a href='http://localhost:8080' target='_blank'>View Deployed App</a>`);
       
             
         }catch(error) {
             console.error(`Error: ${error.message}`)
-            res.status(400).json({message: error.message});
             deleteRepo(clonePath);
+            sendStatus(`🚨 Error: ${error.message}`);
+            
         }
     })
     .catch((err) => {
       console.log('Error cloning repo:', err);
-      res.status(500).json({ message: 'Error cloning repository', error: err.message });
+      if(err.message.includes('Repository not found')){
+        sendStatus(`🚨 Repository not found! Please check the repo URL.`);
+
+      }else{
+        sendStatus(`Error Cloning Repository: ${err.message}`);
+      }
     });
 });
 
 
 // Start the server
-app.listen(port, () => {
+server.listen(port, () => {
   console.log(`Server running on http://localhost:${port}`);
 });
-

@@ -1,0 +1,98 @@
+/* Centering the app */
+.app-container {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    height: 100vh;
+    background-color: #f4f4f4;
+    transition: padding 0.5s ease-in-out;
+}
+
+/* Styling the input and button */
+.input-container {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 10px;
+    transition: transform 0.5s ease-in-out;
+}
+
+/* Moves input section up smoothly when terminal appears */
+.input-container.moved-up {
+    transform: translateY(-50px);
+}
+
+/* Input and button styles */
+.input-container input {
+    padding: 8px;
+    width: 300px;
+    border: 1px solid #ccc;
+    border-radius: 5px;
+}
+
+.input-container button {
+    padding: 8px 12px;
+    background-color: #007bff;
+    color: white;
+    border: none;
+    border-radius: 5px;
+    cursor: pointer;
+}
+
+.input-container button:disabled {
+    background-color: #ccc;
+    cursor: not-allowed;
+}
+
+/* Terminal Styling */
+.terminal {
+    background-color: #1e1e1e;
+    color: #00ff00;
+    font-family: "Courier New", monospace;
+    padding: 20px;
+    width: 60%;
+    height: 350px;
+    overflow-y: auto;
+    border-radius: 5px;
+    border: 1px solid #555;
+    white-space: pre-wrap;
+    text-align: left;
+    box-shadow: 0px 4px 10px rgba(0, 0, 0, 0.2);
+    opacity: 0;
+    transform: scale(0.9);
+    transition: opacity 0.5s ease-in-out, transform 0.5s ease-in-out;
+}
+
+/* Styling for error messages (red) */
+.terminal .error-message {
+    color: red;
+    font-weight: bold;
+}
+  
+  /* Styling for link messages (orange) */
+.terminal .link-message {
+    color: orange;
+    font-weight: bold;
+}
+.terminal .link-message a {
+    color: orange;
+    text-decoration: underline;
+    font-weight: bold;
+  }
+  
+.terminal .link-message a:hover {
+    color: yellow;
+    text-decoration: none;
+}
+/* Smoothly show terminal */
+.show-terminal {
+    opacity: 1;
+    transform: scale(1);
+}
+
+/* Makes terminal text smooth */
+.terminal div {
+    margin-top: 10px;
+    margin-bottom: 5px;
+}
