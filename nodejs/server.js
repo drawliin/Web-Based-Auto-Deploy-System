@@ -92,7 +92,7 @@ const detectNodeEntryFile = (repoPath) => {
   } catch (error) {
       console.log('Error reading package.json:', error);
   }
-  return ['server.js', 'index.js', 'app.js']; // Fallback
+  return ['server.js', 'index.js', 'app.js']; 
 };
 const detectPythonEntryFile = (repoPath) => {
   const backendPath = path.join(repoPath, 'backend');
@@ -106,10 +106,10 @@ const detectPythonEntryFile = (repoPath) => {
       if (content.includes('__main__')) return [file];
   }
 
-  return null; // No clear entry file found
+  return null;
 };
 
-
+//////////////////////////////////////////////////////////
 const detectBackendPort = (repoPath, technology) => {
   // 2️⃣ Look for port definitions in common backend files
   const techPortPatterns = {
@@ -137,14 +137,12 @@ const detectBackendPort = (repoPath, technology) => {
 
   return 'no port found'; // Return null if no port is found
 };
+//////////////////////////////////////////////////////////
 
 
 // Function to detect database used
-const detectDatabase = (repoPath) => {
-  // Step 1: Check the backend technology first
-  const backendTech = detectBackendTechnology(repoPath);
+const detectDatabase = (repoPath, backendTech) => {
 
-  // Step 2: Use switch statement to handle different backend technologies
   switch (backendTech) {
     case 'nodejs': {
       const packageJsonPath = path.join(repoPath, 'backend', 'package.json');
@@ -156,8 +154,6 @@ const detectDatabase = (repoPath) => {
           if (packageJson.dependencies['mongodb'] || packageJson.dependencies['mongoose']) return 'mongodb';
           if (packageJson.dependencies['redis']) return 'redis';
           if (packageJson.dependencies['sqlite3']) return 'sqlite';
-          if (packageJson.dependencies['sequelize']) return 'sequelize';
-          if (packageJson.dependencies['typeorm']) return 'typeorm';
         }
       }
       break; // End of Nodejs case
@@ -648,81 +644,93 @@ app.post('/api/clone-repo', (req, res) => {
 
   // Clone the repository
   git.clone(repoUrl, clonePath)
-    .then(() => {         
+    .then(async() => {         
       
-      if (isFullStackApp(clonePath)) {
-          // Detect frontend and backend technologies
-            const frontendTech = detectFrontendTechnology(clonePath);
-            const backendTech = detectBackendTechnology(clonePath);
-            const databaseTech = detectDatabase(clonePath);
+      try {
 
-            console.log(frontendTech, backendTech, databaseTech);
+        if (!isFullStackApp(clonePath)) {
+          throw new Error("This project does not have a valid full-stack app structure.");
+        }
+            // Detect frontend and backend technologies
+              const frontendTech = detectFrontendTechnology(clonePath);
+              const backendTech = detectBackendTechnology(clonePath);
+              const databaseTech = detectDatabase(clonePath, backendTech);
+  
+              console.log(frontendTech, backendTech, databaseTech);
 
-
-            //const port = detectBackendPort(clonePath, backendTech);
-            //console.log('port detected: ', port);
-
-
-            // Create Dockerfiles for frontend, backend and database
-            createFrontendDockerfile(clonePath, frontendTech);
-            createBackendDockerfile(clonePath, backendTech);
-            createDatabaseDockerfile(clonePath, databaseTech);
-
-            
-            // Create dockerignore
-            createDockerignore(clonePath);
-
-            //create nginx.conf
-            createNginxConfig(clonePath);
-            
-            // Create docker-compose.yml
-            createDockerComposeFile(clonePath, frontendTech, backendTech, databaseTech);
-            
-            //Automatically build and deploy
-            // add cache ignore later
-            exec(`cd ${clonePath} && docker-compose up --build -d`, async(err, stdout, stderr) => {
-                if (err) {
-                  console.log("Deployment Error:", stderr);
-                  if(err.toString().includes("port is already allocated")){
-                    return res.status(500).json({ message: `
-                      <p>🚨 Deployment Failed: Port Conflict 🚨</p>
-                      <p>🔍 Reason: Another container or service is already using the required port.</p>
-                      ` });
-                  }else if(err.toString().includes('error during connect')){
-                    return res.status(500).json({ message: `🚨 Docker Desktop is not running. Please start Docker and try again. 🚨` });
-                  }
-                  return res.status(500).json({ message: `Error deploying application: ${stderr}` });
-                }
-
-                console.log("Deployment Success:", stdout);
-
-                let retries = 50;
-                let nginxReady = false;
-
-                while (retries > 0 && !nginxReady) {
-                  nginxReady = await checkNginx();
-                  if (nginxReady) {
-                    break; // Nginx is ready
-                  }
-                  retries--;
-                  console.log('Waiting for Nginx to be ready...');
-                  await new Promise(resolve => setTimeout(resolve, 4000)); // Wait for 3 seconds
-                }
-
-                if (nginxReady) {
-                  console.log('Ready to go');
-                  res.status(200).json({
-                    message: `Application deployed successfully! <a href='http://localhost:8080' target='_blank'>Deployed Page</a>`,
-                  });
-                } else {
-                  res.status(500).json({
-                    message: "🚨 Deployment Failed: Nginx did not become ready within the expected time. 🚨",
-                  });
-                }
+              if(frontendTech === 'unknown'){
+                throw new Error('🚨 Frontend technology not detected. Deployment cannot proceed.')
+              }
+              if(backendTech === 'unknown'){
+                throw new Error('🚨 Backend technology not detected. Deployment cannot proceed.')
+              }
+              if(databaseTech === 'unknown'){
+                throw new Error('🚨 Database technology not detected. Deployment cannot proceed.')
+              }
+  
+  
+              //const port = detectBackendPort(clonePath, backendTech);
+              //console.log('port detected: ', port);
+  
+  
+              // Create Dockerfiles for frontend, backend and database
+              createFrontendDockerfile(clonePath, frontendTech);
+              createBackendDockerfile(clonePath, backendTech);
+              createDatabaseDockerfile(clonePath, databaseTech);
+  
+              
+              // Create dockerignore
+              createDockerignore(clonePath);
+  
+              //create nginx.conf
+              createNginxConfig(clonePath);
+              
+              // Create docker-compose.yml
+              createDockerComposeFile(clonePath, frontendTech, backendTech, databaseTech);
+              
+              //Automatically build and deploy
+              await new Promise((resolve, reject) => {
+                exec(`cd ${clonePath} && docker-compose up --build -d`, (err, stdout, stderr) => {
+                    if (err) {
+                        console.log("Deployment Error:", stderr);
+                        if (stderr.includes("port is already allocated")) {
+                            reject(new Error("🚨 Deployment Failed: Port Conflict. Another service is using the required port."));
+                        } else if (stderr.includes("error during connect")) {
+                            reject(new Error("🚨 Docker Desktop is not running. Please start Docker and try again."));
+                        } else {
+                            reject(new Error(`Error deploying application: ${stderr}`));
+                        }
+                    } else {
+                        console.log("Deployment Success:", stdout);
+                        resolve();
+                    }
+                });
             });
+
+            // Check if Nginx is ready
+            let retries = 50;
+            let nginxReady = false;
+            while (retries > 0 && !nginxReady) {
+                nginxReady = await checkNginx();
+                if (nginxReady) break;
+                retries--;
+                console.log('Waiting for Nginx to be ready...');
+                await new Promise(resolve => setTimeout(resolve, 4000)); // Wait for 4 seconds
+            }
+
+            if (!nginxReady) {
+                throw new Error("🚨 Deployment Failed: Nginx did not become ready within the expected time.");
+            }
+
+            console.log('Ready to go');
+            res.status(200).json({
+                message: `Application deployed successfully! <a href='http://localhost:8080' target='_blank'>Deployed Page</a>`,
+            });
+      
             
-        }else {
-            res.status(400).json({ message: 'This project does not have a valid full-stack app structure.' });
+        }catch(error) {
+            console.error(`Error: ${error.message}`)
+            res.status(400).json({message: error.message});
             deleteRepo(clonePath);
         }
     })
