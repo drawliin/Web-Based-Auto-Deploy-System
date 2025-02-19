@@ -113,15 +113,6 @@ const detectBackendTechnology = (repoPath) => {
   return 'unknown';
 };
 
-const detectNodeEntryFile = (repoPath) => {
-  try {
-      const packageJson = require(path.join(repoPath, 'backend', 'package.json'));
-      if (packageJson.main) return [packageJson.main];
-  } catch (error) {
-      console.log('Error reading package.json:', error);
-  }
-  return ['server.js', 'index.js', 'app.js']; 
-};
 const detectPythonEntryFile = (repoPath) => {
   const backendPath = path.join(repoPath, 'backend');
   // Get all Python files
@@ -136,37 +127,6 @@ const detectPythonEntryFile = (repoPath) => {
 
   return null;
 };
-
-//////////////////////////////////////////////////////////
-const detectBackendPort = (repoPath, technology) => {
-  // 2️⃣ Look for port definitions in common backend files
-  const techPortPatterns = {
-      'nodejs': /listen\s*\(\s*(\d+)/,  // app.listen(3000)
-      'python-flask': /\.run\([^)]*port\s*=\s*(\d+)/,  // Flask app.run(port=5000)
-      'php': /'port'\s*=>\s*(\d+)/,  // Laravel config
-  };
-
-  const filesToCheck = {
-      'nodejs': detectNodeEntryFile(repoPath),
-      'python-flask': detectPythonEntryFile(repoPath),
-      'php': ['config/app.php'], // Laravel config file
-  };
-
-  if (!filesToCheck[technology]) return 'invalid technology';
-
-  for (const file of filesToCheck[technology]) {
-      const filePath = path.join(repoPath, 'backend', file);
-      if (fs.existsSync(filePath)) {
-          const content = fs.readFileSync(filePath, 'utf-8');
-          const match = content.match(techPortPatterns[technology]);
-          if (match) return parseInt(match[1], 10);
-      }
-  }
-
-  return 'no port found'; // Return null if no port is found
-};
-//////////////////////////////////////////////////////////
-
 
 // Function to detect database used
 const detectDatabase = (repoPath, backendTech) => {
@@ -221,16 +181,29 @@ const detectDatabase = (repoPath, backendTech) => {
 
 
 // Function to create a Dockerfile for the frontend based on technology
-const createFrontendDockerfile = (repoPath) => {
-  
-  let dockerfile = `
+const createFrontendDockerfile = (repoPath, frontendTech) => {
+
+  let API_URL;
+  let dockerfile;
+  if(frontendTech == 'react' || frontendTech == 'react-vite'){
+    API_URL = 'VITE_API_URL';
+    dockerfile = `
     # Dockerfile for React app
       FROM node:alpine AS build
+      ARG ${API_URL}
+      ENV ${API_URL}='http://localhost:4002/api'
       WORKDIR /app
       COPY package*.json ./
       RUN npm install
       COPY ./ ./
   `;
+  }else if(frontendTech=='vue'){
+    API_URL = 'VITE_APP_API_URL';
+  }else if(frontendTech=='angular'){
+    API_URL ='';
+  }
+  
+  
   
   fs.writeFileSync(path.join(repoPath, 'frontend', 'Dockerfile'), dockerfile);
 };
@@ -402,14 +375,10 @@ const createDockerComposeFile = (repoPath, frontendTech, backendTech, databaseTy
   const frontendPath = getBuildPath(frontendTech);  
 
   let frontendService = '';
-  let frontendENV;
   let backendService = '';
   let databaseService = '';
 
   if (frontendPath) {
-    if(frontendTech == 'react' || frontendTech == 'react-vite'){
-      frontendENV = 'REACT_APP_PORT';
-    }
     frontendService = `
       frontend:
         build:
@@ -418,12 +387,11 @@ const createDockerComposeFile = (repoPath, frontendTech, backendTech, databaseTy
         volumes:
           - ./frontend/${frontendPath}:/app/${frontendPath}  # Valid volume mapping
         command: ["npm", "run", "build"]
-        environment:
-          - ${frontendENV}=4002
         depends_on:
           - backend
     `;
   }
+  
 
   switch(`${backendTech}-${databaseType}`){
     case "nodejs-mysql":
@@ -673,93 +641,96 @@ app.post('/api/clone-repo', (req, res) => {
         if (!isFullStackApp(clonePath)) {
           throw new Error("This project does not have a valid full-stack app structure.");
         }
-              sendStatusDelayed('✅ Repository cloned successfully!', 1000);
-              // Detect frontend and backend technologies
-              const frontendTech = detectFrontendTechnology(clonePath);
-              const backendTech = detectBackendTechnology(clonePath);
-              const databaseTech = detectDatabase(clonePath, backendTech);
-  
-              console.log(frontendTech, backendTech, databaseTech);
 
-              if(frontendTech === 'unknown'){
-                throw new Error('Frontend technology not detected. Deployment cannot proceed.')
-              }
-              if(backendTech === 'unknown'){
-                throw new Error('Backend technology not detected. Deployment cannot proceed.')
-              }
-              if(databaseTech === 'unknown'){
-                throw new Error('Database technology not detected. Deployment cannot proceed.')
-              }
-  
-  
-              //const port = detectBackendPort(clonePath, backendTech);
-              //console.log('port detected: ', port);
-  
+        sendStatusDelayed('✅ Repository cloned successfully!', 1500);
+          // Detect frontend and backend technologies
+        const frontendTech = detectFrontendTechnology(clonePath);
+        const backendTech = detectBackendTechnology(clonePath);
+        const databaseTech = detectDatabase(clonePath, backendTech);
 
-              // Create Dockerfiles for frontend, backend and database
-              sendStatusDelayed('⚙️ Creating Dockerfiles...', 2000);
-              createFrontendDockerfile(clonePath, frontendTech);
-              createBackendDockerfile(clonePath, backendTech);
-              createDatabaseDockerfile(clonePath, databaseTech);
-              sendStatusDelayed('✅ Dockerfiles created!', 4000);
-              
-              // Create dockerignore
-              createDockerignore(clonePath);
-  
-              //create nginx.conf
-              createNginxConfig(clonePath);
-              
-              sendStatusDelayed('📦 Creating docker-compose...', 5000);
-              // Create docker-compose.yml
-              createDockerComposeFile(clonePath, frontendTech, backendTech, databaseTech);
-              sendStatusDelayed('✅ Docker-compose created!', 7000);
-              
-              sendStatusDelayed('🚀 Starting Deployment...', 9000);
-              //Automatically build and deploy
-              await new Promise((resolve, reject) => {
-                exec(`cd ${clonePath} && docker-compose up --build -d`, (err, stdout, stderr) => {
-                    if (err) {
-                        console.log("Deployment Error:", stderr);
-                        if (stderr.includes("port is already allocated")) {
-                            reject(new Error("Deployment Failed: Port Conflict. Another service is using the required port."));
-                        } else if (stderr.includes("error during connect")) {
-                            reject(new Error("Docker Desktop is not running. Please start Docker and try again."));
-                        } else {
-                            reject(new Error(`Error deploying application: ${stderr}`));
-                        }
-                    } else {
-                        console.log("Deployment Success:", stdout);
-                        resolve();
-                    }
-                });
-            });
+        console.log(frontendTech, backendTech, databaseTech);
 
-            // Check if Nginx is ready
-            let retries = 50;
-            let nginxReady = false;
-            while (retries > 0 && !nginxReady) {
-                nginxReady = await checkNginx();
-                if (nginxReady) break;
-                retries--;
-                console.log('Waiting for Nginx to be ready...');
-                await new Promise(resolve => setTimeout(resolve, 4000)); // Wait for 4 seconds
-            }
-
-            if (!nginxReady) {
-                throw new Error("🚨 Deployment Failed: Nginx did not become ready within the expected time.");
-            }
-            
-            sendStatus('🚀 Deployment completed successfully!');
-            console.log('Ready to go');
-            sendStatus(`🔗 <a href='http://localhost:8080' target='_blank'>View Deployed App</a>`);
-      
-            
-        }catch(error) {
-            console.error(`Error: ${error.message}`)
-            deleteRepo(clonePath);
-            sendStatus(`🚨 Error: ${error.message}`);
-            
+        if(frontendTech === 'unknown'){
+          throw new Error('Frontend technology not detected. Deployment cannot proceed.')
         }
+        if(backendTech === 'unknown'){
+          throw new Error('Backend technology not detected. Deployment cannot proceed.')
+        }
+        if(databaseTech === 'unknown'){
+          throw new Error('Database technology not detected. Deployment cannot proceed.')
+        }
+
+
+        //const port = detectBackendPort(clonePath, backendTech);
+        //console.log('port detected: ', port);
+
+
+        // Create Dockerfiles for frontend, backend and database
+        sendStatusDelayed('⚙️ Creating Dockerfiles...', 2000);
+        createFrontendDockerfile(clonePath, frontendTech);
+        createBackendDockerfile(clonePath, backendTech);
+        createDatabaseDockerfile(clonePath, databaseTech);
+        sendStatusDelayed('✅ Dockerfiles created!', 4000);
+              
+  
+        // Create dockerignore
+        createDockerignore(clonePath);
+
+        //create nginx.conf
+        createNginxConfig(clonePath);
+        
+        sendStatusDelayed('📦 Creating docker-compose...', 5000);
+        // Create docker-compose.yml
+        createDockerComposeFile(clonePath, frontendTech, backendTech, databaseTech);
+        sendStatusDelayed('✅ Docker-compose created!', 7000);
+        
+        sendStatusDelayed('🚀 Starting Deployment...', 9000);
+        
+        //Automatically build and deploy
+        await new Promise((resolve, reject) => {
+          exec(`cd ${clonePath} && docker-compose up --build -d`, (err, stdout, stderr) => {
+              if (err) {
+                  console.log("Deployment Error:", stderr);
+                  if (stderr.includes("port is already allocated")) {
+                      reject(new Error("Deployment Failed: Port Conflict. Another service is using the required port."));
+                  } else if (stderr.includes("error during connect")) {
+                      reject(new Error("Docker Desktop is not running. Please start Docker and try again."));
+                  } else {
+                      reject(new Error(`Error deploying application: ${stderr}`));
+                  }
+              } else {
+                  console.log("Deployment Success:", stdout);
+                  resolve();
+              }
+          });
+      });
+
+      // Check if Nginx is ready
+      let retries = 50;
+      let nginxReady = false;
+      while (retries > 0 && !nginxReady) {
+          nginxReady = await checkNginx();
+          if (nginxReady) break;
+          retries--;
+          console.log('Waiting for Nginx to be ready...');
+          await new Promise(resolve => setTimeout(resolve, 4000)); // Wait for 4 seconds
+      }
+
+      if (!nginxReady) {
+          throw new Error("🚨 Deployment Failed: Nginx did not become ready within the expected time.");
+      }
+      
+      sendStatus('🚀 Deployment completed successfully!');
+      console.log('Ready to go');
+      sendStatus(`🔗 <a href='http://localhost:8080' target='_blank'>View Deployed App</a>`);
+
+      
+      }catch(error) {
+        console.error(`Error: ${error.message}`)
+        deleteRepo(clonePath);
+        sendStatus(`🚨 Error: ${error.message}`);
+      
+      }
     })
     .catch((err) => {
       console.log('Error cloning repo:', err);
@@ -767,7 +738,7 @@ app.post('/api/clone-repo', (req, res) => {
         sendStatus(`🚨 Repository not found! Please check the repo URL.`);
 
       }else{
-        sendStatus(`Error Cloning Repository: ${err.message}`);
+        sendStatus(`🚨 Error Cloning Repository: ${err.message}`);
       }
     });
 });

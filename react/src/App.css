@@ -25,7 +25,10 @@ body{
     font-size: 1.5rem;
     font-weight: bold;
 }
-.navbar nav {
+.navbar a,
+.navbar .home-link {
+    text-decoration: none;
+    color: #ffffff;
     cursor: pointer;
     transition: color 0.3s ease-in-out;
 }
@@ -35,8 +38,17 @@ body{
     gap: 15px;
     font-size: 1.1rem;
 }
-.navbar nav:hover {
-    color: cyan; /* Highlight effect */
+.navbar a:hover,
+.navbar .home-link:hover {
+    color: cyan; 
+}
+
+.navbar a[target="_blank"] {
+    color: lightblue;
+}
+
+.navbar a[target="_blank"]:hover {
+    color: cyan;
 }
 
 /* Immersive Background */
