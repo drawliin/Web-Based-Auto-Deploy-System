@@ -41,6 +41,7 @@ function App() {
         });
       } catch (error) {
         console.log('Error cloning repo:', error);
+        setWsMessages(prev=>[...prev, "🚨 Server Problem.. Try Again"])
         setDisableInput(false);
       }
     }
@@ -57,9 +58,18 @@ function App() {
   };
 
   return (
-    <div className="app-container">
-      <div className={`input-container ${showTerminal ? 'moved-up' : ''}`}>
-        <h1 className="title">🚀 Clone a GitHub Repo</h1>
+    <div className='container'>
+      <div className='navbar'>
+        <nav>GitHub AutoDeploy App</nav>
+        <div>
+          <nav>Source Code</nav>
+          <nav>How it works ?</nav>
+        </div>
+      </div>
+
+      <div className="app-container">
+        <div className={`input-container ${showTerminal ? 'moved-up' : ''}`}>
+        <h1 className="title"><img src='./github-logo.png' /> Clone a GitHub Repo</h1>
         <div className="input-box">
           <input
             type="text"
@@ -87,6 +97,7 @@ function App() {
           ))}
         </div>
       )}
+      </div>
     </div>
   );
 }
