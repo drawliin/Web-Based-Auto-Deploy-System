@@ -185,7 +185,7 @@ const createFrontendDockerfile = (repoPath, frontendTech) => {
 
   let API_URL;
   let dockerfile;
-  if(frontendTech == 'react' || frontendTech == 'react-vite' || frontendTech == 'vue'){
+  if(frontendTech == 'react-vite' || frontendTech == 'vue'){
     API_URL = 'VITE_API_URL';
     dockerfile = `
     # Dockerfile for React app
@@ -197,8 +197,18 @@ const createFrontendDockerfile = (repoPath, frontendTech) => {
       RUN npm install
       COPY ./ ./
   `;
-  }else if(frontendTech=='angular'){
-    API_URL ='';
+  }else if(frontendTech == 'react'){
+    API_URL ='REACT_APP_API_URL';
+    dockerfile = `
+    # Dockerfile for React app
+      FROM node:alpine AS build
+      ARG ${API_URL}
+      ENV ${API_URL}='http://localhost:4002/api'
+      WORKDIR /app
+      COPY package*.json ./
+      RUN npm install
+      COPY ./ ./
+  `;
   }
   
   
