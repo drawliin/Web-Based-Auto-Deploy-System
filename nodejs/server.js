@@ -185,7 +185,7 @@ const createFrontendDockerfile = (repoPath, frontendTech) => {
 
   let API_URL;
   let dockerfile;
-  if(frontendTech == 'react' || frontendTech == 'react-vite'){
+  if(frontendTech == 'react' || frontendTech == 'react-vite' || frontendTech == 'vue'){
     API_URL = 'VITE_API_URL';
     dockerfile = `
     # Dockerfile for React app
@@ -197,8 +197,6 @@ const createFrontendDockerfile = (repoPath, frontendTech) => {
       RUN npm install
       COPY ./ ./
   `;
-  }else if(frontendTech=='vue'){
-    API_URL = 'VITE_APP_API_URL';
   }else if(frontendTech=='angular'){
     API_URL ='';
   }
@@ -659,11 +657,6 @@ app.post('/api/clone-repo', (req, res) => {
         if(databaseTech === 'unknown'){
           throw new Error('Database technology not detected. Deployment cannot proceed.')
         }
-
-
-        //const port = detectBackendPort(clonePath, backendTech);
-        //console.log('port detected: ', port);
-
 
         // Create Dockerfiles for frontend, backend and database
         sendStatusDelayed('⚙️ Creating Dockerfiles...', 2000);
