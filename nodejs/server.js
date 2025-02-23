@@ -85,9 +85,7 @@ const detectFrontendTechnology = (repoPath) => {
       return 'react';
     } else if (packageJson.dependencies && packageJson.dependencies.vue) {
       return 'vue';
-    } else if (fs.existsSync(path.join(repoPath, 'frontend', 'angular.json'))) {
-      return 'angular';
-    }
+    } 
   }
   return 'unknown';
 };
@@ -110,6 +108,11 @@ const detectBackendTechnology = (repoPath) => {
     if (requirements.includes('flask')) return 'python-flask';
   }
 
+  // ✅ Java Backend Detection
+  if (fs.existsSync(path.join(backendPath, 'pom.xml'))) {
+    return 'java';
+  }
+
   return 'unknown';
 };
 
@@ -130,6 +133,19 @@ const detectPythonEntryFile = (repoPath) => {
 
 // Function to detect database used
 const detectDatabase = (repoPath, backendTech) => {
+
+  // Step 3: If no database is found in the backend, check the database folder for .env
+  const databasePath = path.join(repoPath, 'database');
+  if (fs.existsSync(databasePath)) {
+    const envPath = path.join(databasePath, '.env');
+    if (fs.existsSync(envPath)) {
+      const envContent = fs.readFileSync(envPath, 'utf-8');
+      if (envContent.includes('DB_CONNECTION=mysql')) return 'mysql';
+      if (envContent.includes('DB_CONNECTION=pgsql')) return 'postgres';
+      if (envContent.includes('MONGO_URI')) return 'mongodb';
+      
+    }
+  }
 
   switch (backendTech) {
     case 'nodejs': {
@@ -163,20 +179,8 @@ const detectDatabase = (repoPath, backendTech) => {
       throw new Error('No database found!!');
   }
 
-  // Step 3: If no database is found in the backend, check the database folder for .env
-  const databasePath = path.join(repoPath, 'database');
-  if (fs.existsSync(databasePath)) {
-    const envPath = path.join(databasePath, '.env');
-    if (fs.existsSync(envPath)) {
-      const envContent = fs.readFileSync(envPath, 'utf-8');
-      if (envContent.includes('DB_CONNECTION=mysql')) return 'mysql';
-      if (envContent.includes('DB_CONNECTION=pgsql')) return 'postgres';
-      if (envContent.includes('MONGO_URI')) return 'mongodb';
-      if (envContent.includes('REDIS_URL')) return 'redis';
-    }
-  }
+  
 
-  return 'unknown'; // No database detected
 };
 
 
@@ -371,10 +375,8 @@ const getBuildPath = (frontendTech) => {
       case 'react-vite':
       case 'vue':
           return 'dist';
-      case 'angular':
-          return 'dist/frontend/browser';
       default:
-          return null; // Handle unsupported frontend tech
+          return null; 
   }
 };
 
