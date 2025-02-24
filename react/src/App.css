@@ -1,30 +1,38 @@
 @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;600;700&display=swap');
 
-body{
+body {
     font-family: 'Poppins', sans-serif;
+    margin: 0;
+    padding: 0;
+    overflow: hidden; /* Prevents scrollbars from appearing */
 }
 
-*{
+* {
     margin: 0;
     padding: 0;
 }
 
-.container{
+.container {
+    position: relative;
     height: 100vh;
+    width: 100vw;
     background: linear-gradient(135deg, #1e1e1e, #2c2c54);
     display: flex;
     flex-direction: column;
+    overflow: hidden; /* Ensures floating icons stay within the container */
 }
-.navbar{
+
+.navbar {
     height: 5vh;
     display: flex;
     justify-content: space-around;
     align-items: flex-end;
-    padding: 20px 50px; 
+    padding: 20px 50px;
     color: #ffffff;
     font-size: 1.5rem;
     font-weight: bold;
 }
+
 .navbar a,
 .navbar .home-link {
     text-decoration: none;
@@ -33,14 +41,15 @@ body{
     transition: color 0.3s ease-in-out;
 }
 
-.navbar div{
+.navbar div {
     display: flex;
     gap: 15px;
     font-size: 1.1rem;
 }
+
 .navbar a:hover,
 .navbar .home-link:hover {
-    color: cyan; 
+    color: cyan;
 }
 
 .navbar a[target="_blank"] {
@@ -72,6 +81,7 @@ body{
     align-items: center; /* Aligns image and text properly */
     gap: 15px; /* Adds space between logo and text */
 }
+
 .title img {
     width: 55px; /* Adjust size as needed */
     height: auto;
@@ -197,4 +207,76 @@ body{
 .terminal div {
     margin-top: 10px;
     margin-bottom: 5px;
+}
+
+/* Floating GitHub Icons */
+.floating-icon {
+  position: absolute;
+  opacity: 0.1; /* Further reduced opacity for less visibility */
+  animation: float 60s linear infinite; /* Further increased duration for slower movement */
+  animation-fill-mode: forwards; /* Ensure the animation starts from the beginning */
+  animation-play-state: running; /* Ensure the animation is always running */
+  animation-delay: 0s; /* Remove any initial delay */
+  will-change: transform; /* Optimize performance */
+}
+
+@keyframes float {
+  0% {
+    transform: translateY(0);
+  }
+  100% {
+    transform: translateY(-100vh);
+  }
+}
+
+.from-top {
+  animation-name: float-from-top;
+}
+
+@keyframes float-from-top {
+  0% {
+    transform: translateY(-100vh);
+  }
+  100% {
+    transform: translateY(100vh);
+  }
+}
+
+.from-bottom {
+  animation-name: float-from-bottom;
+}
+
+@keyframes float-from-bottom {
+  0% {
+    transform: translateY(100vh);
+  }
+  100% {
+    transform: translateY(-100vh);
+  }
+}
+
+.from-left {
+  animation-name: float-from-left;
+}
+
+@keyframes float-from-left {
+  0% {
+    transform: translateX(-100vw);
+  }
+  100% {
+    transform: translateX(100vw);
+  }
+}
+
+.from-right {
+  animation-name: float-from-right;
+}
+
+@keyframes float-from-right {
+  0% {
+    transform: translateX(100vw);
+  }
+  100% {
+    transform: translateX(-100vw);
+  }
 }

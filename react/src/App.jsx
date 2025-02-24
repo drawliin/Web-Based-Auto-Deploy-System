@@ -1,10 +1,26 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { BrowserRouter as Router, Routes, Route, Link } from 'react-router-dom';
 import { io } from 'socket.io-client';
+import { Github } from 'lucide-react'; // Import the Github icon from lucide-react
 import HowItWorks from './HowItWorks';
 import './App.css';
 
 const socket = io('http://localhost:5001');
+
+function FloatingGithubIcon({ size, top, left, direction }) {
+  return (
+    <div
+      className={`floating-icon ${direction}`}
+      style={{
+        width: `${size}px`,
+        top: `${top}%`,
+        left: `${left}%`,
+      }}
+    >
+      <Github size={size} color="grey" />
+    </div>
+  );
+}
 
 function Home() {
   const [repoUrl, setRepoUrl] = useState('');
@@ -15,10 +31,10 @@ function Home() {
 
   useEffect(() => {
     socket.on('status', (message) => {
-      if(message.includes('Deploying')){
+      if (message.includes('Deploying')) {
         let tempMessages = [...wsMessages];
-        tempMessages[tempMessages.length-1] = message;
-      }else{
+        tempMessages[tempMessages.length - 1] = message;
+      } else {
         setWsMessages((prevMessages) => [...prevMessages, message]);
         setShowTerminal(true);
       }
@@ -27,7 +43,7 @@ function Home() {
     return () => {
       socket.off('status');
     };
-  }, []);
+  }, [wsMessages]);
 
   useEffect(() => {
     if (terminalRef.current) {
@@ -48,7 +64,7 @@ function Home() {
         });
       } catch (error) {
         console.log('Error cloning repo:', error);
-        setWsMessages(prev => [...prev, "🚨 Server Problem.. Try Again"]);
+        setWsMessages((prev) => [...prev, '🚨 Server Problem.. Try Again']);
         setDisableInput(false);
       }
     }
@@ -64,8 +80,22 @@ function Home() {
     }
   };
 
+  const generateFloatingIcons = () => {
+    const icons = [];
+    const directions = ['from-top', 'from-bottom', 'from-left', 'from-right'];
+    for (let i = 0; i < 50; i++) { // Increased number of icons to 50
+      const size = Math.random() * 30 + 10; // Random size between 10 and 40
+      const top = Math.random() * 100; // Random top position
+      const left = Math.random() * 100; // Random left position
+      const direction = directions[Math.floor(Math.random() * directions.length)]; // Random direction
+      icons.push(<FloatingGithubIcon key={i} size={size} top={top} left={left} direction={direction} />);
+    }
+    return icons;
+  };
+
   return (
     <div className='container'>
+      {generateFloatingIcons()}
       <div className='navbar'>
         <Link to="/" className="home-link">GitHub AutoDeploy App</Link>
         <div>
@@ -76,7 +106,7 @@ function Home() {
 
       <div className="app-container">
         <div className={`input-container ${showTerminal ? 'moved-up' : ''}`}>
-          <h1 className="title"><img src='./github-logo.png' /> Clone a GitHub Repo</h1>
+          <h1 className="title"><img src='./github-logo.png' alt='GitHub Logo' /> Clone a GitHub Repo</h1>
           <div className="input-box">
             <input
               type="text"
