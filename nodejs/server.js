@@ -53,11 +53,35 @@ const generateUniqueFolderName = (repoUrl) => {
 
 // Function to check if the cloned repo has the full-stack app structure
 const isFullStackApp = (repoPath) => {
-    const requiredFolders = ['frontend', 'backend', 'database'];
-    
-    return requiredFolders.every(folder => {
-      return fs.existsSync(path.join(repoPath, folder));
-    });
+  // Define possible folder names for each component
+  const frontendNames = ['frontend', 'client', 'web', 'ui', 'app'];
+  const backendNames = ['backend', 'server', 'api', 'services'];
+  const databaseNames = ['database', 'db', 'data', 'storage'];
+
+  // Function to find the folder name for a component
+  const findComponentFolder = (componentNames) => {
+    const folders = fs.readdirSync(repoPath);
+    for (const folder of folders) {
+      if (componentNames.includes(folder.toLowerCase())) {
+        return folder; // Return the actual folder name
+      }
+    }
+    return null; // Return null if no matching folder is found
+  };
+
+  // Find folders for each component
+  const frontendFolder = findComponentFolder(frontendNames);
+  const backendFolder = findComponentFolder(backendNames);
+  const databaseFolder = findComponentFolder(databaseNames);
+
+  // Check if all required components exist
+  const valid = frontendFolder && backendFolder && databaseFolder;
+
+  // Return the result as an object
+  if(valid){
+    return {frontend: frontendFolder, backend: backendFolder, database: databaseFolder}
+  }
+  return false;
 };
 
 // Deleting unwanted repos
@@ -71,14 +95,14 @@ const deleteRepo = (repoPath) => {
 };
 
 // Function to detect the frontend technology
-const detectFrontendTechnology = (repoPath) => {
-  const packageJsonPath = path.join(repoPath, 'frontend', 'package.json');
+const detectFrontendTechnology = (repoPath, folderName) => {
+  const packageJsonPath = path.join(repoPath, folderName.frontend, 'package.json');
   if (fs.existsSync(packageJsonPath)) {
 
     const packageJson = require(packageJsonPath);
     if (packageJson.dependencies && packageJson.dependencies.react) {
-      const viteJSBundlerPath = path.join(repoPath, 'frontend', 'vite.config.js');
-      const viteTSBundlerPath = path.join(repoPath, 'frontend', 'vite.config.ts');
+      const viteJSBundlerPath = path.join(repoPath, folderName.frontend, 'vite.config.js');
+      const viteTSBundlerPath = path.join(repoPath, folderName.frontend, 'vite.config.ts');
       if(fs.existsSync(viteJSBundlerPath) || fs.existsSync(viteTSBundlerPath)){
         return 'react-vite';
       }
@@ -91,8 +115,8 @@ const detectFrontendTechnology = (repoPath) => {
 };
 
 // Function to detect the backend technology and its PORT
-const detectBackendTechnology = (repoPath) => {
-  const backendPath = path.join(repoPath, 'backend');
+const detectBackendTechnology = (repoPath, folderName) => {
+  const backendPath = path.join(repoPath, folderName.backend);
   const reqFilePath = path.join(backendPath, 'requirements.txt');
 
   // ✅ Node.js Detection
@@ -110,8 +134,8 @@ const detectBackendTechnology = (repoPath) => {
   return 'unknown';
 };
 
-const detectPythonEntryFile = (repoPath) => {
-  const backendPath = path.join(repoPath, 'backend');
+const detectPythonEntryFile = (repoPath, folderName) => {
+  const backendPath = path.join(repoPath, folderName.backend);
   // Get all Python files
   const pyFiles = fs.readdirSync(backendPath).filter(file => file.endsWith('.py'));
 
@@ -126,10 +150,10 @@ const detectPythonEntryFile = (repoPath) => {
 };
 
 // Function to detect database used
-const detectDatabase = (repoPath, backendTech) => {
+const detectDatabase = (repoPath, backendTech, folderName) => {
 
   // Step 3: If no database is found in the backend, check the database folder for .env
-  const databasePath = path.join(repoPath, 'database');
+  const databasePath = path.join(repoPath, folderName.database);
   if (fs.existsSync(databasePath)) {
     const envPath = path.join(databasePath, '.env');
     if (fs.existsSync(envPath)) {
@@ -143,7 +167,7 @@ const detectDatabase = (repoPath, backendTech) => {
 
   switch (backendTech) {
     case 'nodejs': {
-      const packageJsonPath = path.join(repoPath, 'backend', 'package.json');
+      const packageJsonPath = path.join(repoPath, folderName.backend, 'package.json');
       if (fs.existsSync(packageJsonPath)) {
         const packageJson = require(packageJsonPath);
         if (packageJson.dependencies) {
@@ -156,7 +180,7 @@ const detectDatabase = (repoPath, backendTech) => {
     }
 
     case 'python-flask': {
-      const requirementsPath = path.join(repoPath, 'backend', 'requirements.txt');
+      const requirementsPath = path.join(repoPath, folderName.backend, 'requirements.txt');
       if (fs.existsSync(requirementsPath)) {
         let buffer = fs.readFileSync(requirementsPath);
         let requirements = buffer.toString('utf16le');
@@ -174,7 +198,7 @@ const detectDatabase = (repoPath, backendTech) => {
 
 
 // Function to create a Dockerfile for the frontend based on technology
-const createFrontendDockerfile = (repoPath, frontendTech) => {
+const createFrontendDockerfile = (repoPath, frontendTech, folderName) => {
 
   let API_URL;
   let dockerfile;
@@ -206,15 +230,15 @@ const createFrontendDockerfile = (repoPath, frontendTech) => {
   
   
   
-  fs.writeFileSync(path.join(repoPath, 'frontend', 'Dockerfile'), dockerfile);
+  fs.writeFileSync(path.join(repoPath, folderName.frontend, 'Dockerfile'), dockerfile);
 };
 
 // Function to create a Dockerfile for the backend based on technology
-const createBackendDockerfile = (repoPath, backendTech) => {
+const createBackendDockerfile = (repoPath, backendTech, folderName) => {
   let dockerfile = '';
   switch (backendTech) {
     case 'nodejs': {
-      const packageJson = require(path.join(repoPath, 'backend', 'package.json'));
+      const packageJson = require(path.join(repoPath, folderName.backend, 'package.json'));
       dockerfile = `
         # Dockerfile for Node.js backend
         FROM node:alpine
@@ -228,7 +252,7 @@ const createBackendDockerfile = (repoPath, backendTech) => {
     }
 
     case 'python-flask': {
-      const pythonEntryFile = detectPythonEntryFile(repoPath);
+      const pythonEntryFile = detectPythonEntryFile(repoPath, folderName);
       if (!pythonEntryFile || pythonEntryFile.length === 0) {
         throw new Error('No valid Python entry file found.');
       }
@@ -245,11 +269,11 @@ const createBackendDockerfile = (repoPath, backendTech) => {
     default:
       throw new Error(`Unsupported backend technology: ${backendTech}`);
   }
-  fs.writeFileSync(path.join(repoPath, 'backend', 'Dockerfile'), dockerfile);
+  fs.writeFileSync(path.join(repoPath, folderName.backend, 'Dockerfile'), dockerfile);
 };
 
 // Function to create a Dockerfile for the database based on technology
-const createDatabaseDockerfile = (repoPath, databaseType) => {
+const createDatabaseDockerfile = (repoPath, databaseType, folderName) => {
   let dockerfile = '';
 
   switch (databaseType) {
@@ -289,7 +313,7 @@ const createDatabaseDockerfile = (repoPath, databaseType) => {
       return;
   }
 
-  fs.writeFileSync(path.join(repoPath, 'database', 'Dockerfile'), dockerfile);
+  fs.writeFileSync(path.join(repoPath, folderName.database, 'Dockerfile'), dockerfile);
 };
 
 // generate nginx config
@@ -370,10 +394,10 @@ const getBuildPath = (frontendTech) => {
 };
 
 // Function to create a docker-compose.yml file
-const createDockerComposeFile = (repoPath, frontendTech, backendTech, databaseType, clonePath) => {
+const createDockerComposeFile = (repoPath, frontendTech, backendTech, databaseType, clonePath, folderName) => {
   const frontendPath = getBuildPath(frontendTech);
   // extract folder name
-  const folderName = path.basename(clonePath);    
+  const folderNameNetwork = path.basename(clonePath);    
 
   let frontendService = '';
   let backendService = '';
@@ -385,10 +409,10 @@ const createDockerComposeFile = (repoPath, frontendTech, backendTech, databaseTy
     frontendService = `
       frontend:
         build:
-          context: ./frontend
+          context: ./${folderName.frontend}
           dockerfile: Dockerfile
         volumes:
-          - ./frontend/${frontendPath}:/app/${frontendPath}  # Valid volume mapping
+          - ./${folderName.frontend}/${frontendPath}:/app/${frontendPath}  # Valid volume mapping
         command: ["npm", "run", "build"]
         depends_on:
           - backend
@@ -401,7 +425,7 @@ const createDockerComposeFile = (repoPath, frontendTech, backendTech, databaseTy
       backendService = `
         backend:
           build:
-            context: ./backend
+            context: ./${folderName.backend}
             dockerfile: Dockerfile
           ports:
             - "4002:4002"  
@@ -418,7 +442,7 @@ const createDockerComposeFile = (repoPath, frontendTech, backendTech, databaseTy
       databaseService = `
         db:
           build:
-            context: ./database
+            context: ./${folderName.database}
             dockerfile: Dockerfile
           environment:
             MYSQL_ROOT_PASSWORD: root
@@ -426,8 +450,8 @@ const createDockerComposeFile = (repoPath, frontendTech, backendTech, databaseTy
           ports:
             - "3307:3307"
           volumes:
-            - ${folderName}-data:/var/lib/mysql
-            - ./database/init:/docker-entrypoint-initdb.d
+            - ${folderNameNetwork}-data:/var/lib/mysql
+            - ./${folderName.database}/init:/docker-entrypoint-initdb.d
           healthcheck:
             test: ["CMD", "mysqladmin", "ping", "-h", "127.0.0.1"]
             interval: 10s
@@ -439,7 +463,7 @@ const createDockerComposeFile = (repoPath, frontendTech, backendTech, databaseTy
       backendService = `
         backend:
           build:
-            context: ./backend
+            context: ./${folderName.backend}
             dockerfile: Dockerfile
           ports:
             - "4002:4002"  
@@ -452,21 +476,21 @@ const createDockerComposeFile = (repoPath, frontendTech, backendTech, databaseTy
       databaseService = `
         db:
           build:
-            context: ./database
+            context: ./${folderName.database}
             dockerfile: Dockerfile
 
           ports:
             - "27017:27017"
           volumes:
-            - ${folderName}-data:/data/db
-            - ./database/init:/docker-entrypoint-initdb.d
+            - ${folderNameNetwork}-data:/data/db
+            - ./${folderName.database}/init:/docker-entrypoint-initdb.d
       `;
       break;
     case "nodejs-postgres":
       backendService = `
         backend:
           build:
-            context: ./backend
+            context: ./${folderName.backend}
             dockerfile: Dockerfile
           ports:
             - "4002:4002"  
@@ -484,7 +508,7 @@ const createDockerComposeFile = (repoPath, frontendTech, backendTech, databaseTy
       databaseService = `
         db:
           build:
-            context: ./database
+            context: ./${folderName.database}
             dockerfile: Dockerfile
 
           ports:
@@ -494,8 +518,8 @@ const createDockerComposeFile = (repoPath, frontendTech, backendTech, databaseTy
             POSTGRES_PASSWORD: postgres
             POSTGRES_DB: mydb
           volumes:
-            - ${folderName}-data:/var/lib/postgresql/data
-            - ./database/init:/docker-entrypoint-initdb.d
+            - ${folderNameNetwork}-data:/var/lib/postgresql/data
+            - ./${folderName.database}/init:/docker-entrypoint-initdb.d
           healthcheck:
             test: ["CMD-SHELL", "pg_isready -U postgres -d mydb"]
             interval: 10s
@@ -507,7 +531,7 @@ const createDockerComposeFile = (repoPath, frontendTech, backendTech, databaseTy
       backendService=`
         backend:
           build:
-            context: ./backend
+            context: ./${folderName.backend}
             dockerfile: Dockerfile
           ports:
             - "4002:4002"
@@ -525,7 +549,7 @@ const createDockerComposeFile = (repoPath, frontendTech, backendTech, databaseTy
       databaseService=`
         db:
           build:
-            context: ./database
+            context: ./${folderName.database}
             dockerfile: Dockerfile
           environment:
             MYSQL_ROOT_PASSWORD: root
@@ -533,8 +557,8 @@ const createDockerComposeFile = (repoPath, frontendTech, backendTech, databaseTy
           ports:
             - "3307:3307"
           volumes:
-            - ${folderName}-data:/var/lib/mysql
-            - ./database/init:/docker-entrypoint-initdb.d
+            - ${folderNameNetwork}-data:/var/lib/mysql
+            - ./${folderName.database}/init:/docker-entrypoint-initdb.d
           healthcheck:
             test: ["CMD", "mysqladmin", "ping", "-h", "127.0.0.1"]
             interval: 10s
@@ -546,7 +570,7 @@ const createDockerComposeFile = (repoPath, frontendTech, backendTech, databaseTy
       backendService = `
         backend:
             build:
-              context: ./backend
+              context: ./${folderName.backend}
               dockerfile: Dockerfile
             ports:
               - "4002:4002"
@@ -560,14 +584,14 @@ const createDockerComposeFile = (repoPath, frontendTech, backendTech, databaseTy
       databaseService = `
         db:
           build:
-            context: ./database
+            context: ./${folderName.database}
             dockerfile: Dockerfile
 
           ports:
             - "27017:27017"
           volumes:
-            - ${folderName}-data:/data/db
-            - ./database/init:/docker-entrypoint-initdb.d
+            - ${folderNameNetwork}-data:/data/db
+            - ./${folderName.database}/init:/docker-entrypoint-initdb.d
       `;
       break;
     default:
@@ -586,7 +610,7 @@ const createDockerComposeFile = (repoPath, frontendTech, backendTech, databaseTy
         image: nginx:alpine
         volumes:
           - ./nginx.conf:/etc/nginx/nginx.conf:ro
-          - ./frontend/${frontendPath}:/usr/share/nginx/html  # Serve frontend files (Ensure frontendPath is correct)
+          - ./${folderName.frontend}/${frontendPath}:/usr/share/nginx/html  # Serve frontend files (Ensure frontendPath is correct)
           
         ports:
           - "8081:80"
@@ -600,7 +624,7 @@ networks:
     driver: bridge
 
 volumes:
-  ${folderName}-data:
+  ${folderNameNetwork}-data:
   `;
   console.log(dockerCompose);
   // Ensure the output is correctly written to the file
@@ -690,16 +714,17 @@ app.post('/api/clone-repo', async (req, res) => {
       
       try {
 
-        if (!isFullStackApp(clonePath)) {
+        const repoFoldersName = isFullStackApp(clonePath)
+        if (!repoFoldersName) {
           throw new Error("This project does not have a valid full-stack app structure.");
         }
 
         sendStatusDelayed('✅ Repository cloned successfully!', 1500);
 
           // Detect frontend and backend technologies
-        const frontendTech = detectFrontendTechnology(clonePath);
-        const backendTech = detectBackendTechnology(clonePath);
-        const databaseTech = detectDatabase(clonePath, backendTech);
+        const frontendTech = detectFrontendTechnology(clonePath, repoFoldersName);
+        const backendTech = detectBackendTechnology(clonePath, repoFoldersName);
+        const databaseTech = detectDatabase(clonePath, backendTech, repoFoldersName);
 
         console.log(frontendTech, backendTech, databaseTech);
 
@@ -715,9 +740,9 @@ app.post('/api/clone-repo', async (req, res) => {
 
         // Create Dockerfiles for frontend, backend and database
         sendStatusDelayed('⚙️ Creating Dockerfiles...', 2000);
-        createFrontendDockerfile(clonePath, frontendTech);
-        createBackendDockerfile(clonePath, backendTech);
-        createDatabaseDockerfile(clonePath, databaseTech);
+        createFrontendDockerfile(clonePath, frontendTech, repoFoldersName);
+        createBackendDockerfile(clonePath, backendTech, repoFoldersName);
+        createDatabaseDockerfile(clonePath, databaseTech, repoFoldersName);
         sendStatusDelayed('✅ Dockerfiles created!', 4000);
               
   
@@ -729,7 +754,7 @@ app.post('/api/clone-repo', async (req, res) => {
         
         sendStatusDelayed('📦 Creating docker-compose...', 5000);
         // Create docker-compose.yml
-        createDockerComposeFile(clonePath, frontendTech, backendTech, databaseTech, clonePath);
+        createDockerComposeFile(clonePath, frontendTech, backendTech, databaseTech, clonePath, repoFoldersName);
         sendStatusDelayed('✅ Docker-compose created!', 7000);
         
         sendStatusDelayed('🚀 Starting Deployment...', 9000);

@@ -172,7 +172,37 @@ body {
     opacity: 0;
     transform: scale(0.9);
     transition: opacity 0.5s ease-in-out, transform 0.5s ease-in-out;
+
+    /* For Firefox */
+    scrollbar-width: thin;
+    scrollbar-color: #00ff00 #222;
 }
+/* WebKit (Chrome, Edge, Safari) */
+.terminal::-webkit-scrollbar {
+  width: 8px;
+}
+
+/* Scrollbar track */
+.terminal::-webkit-scrollbar-track {
+  background: #222; /* Dark background */
+  border-radius: 10px;
+}
+
+/* Scrollbar handle */
+.terminal::-webkit-scrollbar-thumb {
+  background: #00ff00; /* Neon green scrollbar */
+  border-radius: 10px;
+  border: 2px solid #222; /* Adds a small border */
+}
+
+/* Scrollbar handle on hover */
+.terminal::-webkit-scrollbar-thumb:hover {
+  background: #00cc00; /* Slightly darker green */
+}
+
+
+
+
 
 /* Error Messages */
 .terminal .error-message {
