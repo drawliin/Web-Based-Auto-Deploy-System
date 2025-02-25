@@ -107,12 +107,6 @@ const detectBackendTechnology = (repoPath) => {
 
     if (requirements.includes('flask')) return 'python-flask';
   }
-
-  // ✅ Java Backend Detection
-  if (fs.existsSync(path.join(backendPath, 'pom.xml'))) {
-    return 'java';
-  }
-
   return 'unknown';
 };
 
@@ -156,11 +150,9 @@ const detectDatabase = (repoPath, backendTech) => {
           if (packageJson.dependencies['mysql'] || packageJson.dependencies['mysql2']) return 'mysql';
           if (packageJson.dependencies['pg']) return 'postgres';
           if (packageJson.dependencies['mongodb'] || packageJson.dependencies['mongoose']) return 'mongodb';
-          if (packageJson.dependencies['redis']) return 'redis';
-          if (packageJson.dependencies['sqlite3']) return 'sqlite';
         }
       }
-      break; // End of Nodejs case
+      break;
     }
 
     case 'python-flask': {
@@ -173,14 +165,11 @@ const detectDatabase = (repoPath, backendTech) => {
         if (requirements.includes('psycopg2')) return 'postgres';
         if (requirements.includes('pymongo')) return 'mongodb';
       }
-      break; // End of Python case
+      break; 
     }
     default:
       throw new Error('No database found!!');
   }
-
-  
-
 };
 
 
@@ -381,12 +370,16 @@ const getBuildPath = (frontendTech) => {
 };
 
 // Function to create a docker-compose.yml file
-const createDockerComposeFile = (repoPath, frontendTech, backendTech, databaseType) => {
-  const frontendPath = getBuildPath(frontendTech);  
+const createDockerComposeFile = (repoPath, frontendTech, backendTech, databaseType, clonePath) => {
+  const frontendPath = getBuildPath(frontendTech);
+  // extract folder name
+  const folderName = path.basename(clonePath);    
 
   let frontendService = '';
   let backendService = '';
   let databaseService = '';
+
+  const networkName = `repo-network-${Math.floor(Math.random() * 1000)}`;
 
   if (frontendPath) {
     frontendService = `
@@ -433,7 +426,7 @@ const createDockerComposeFile = (repoPath, frontendTech, backendTech, databaseTy
           ports:
             - "3307:3307"
           volumes:
-            - db-data:/var/lib/mysql
+            - ${folderName}-data:/var/lib/mysql
             - ./database/init:/docker-entrypoint-initdb.d
           healthcheck:
             test: ["CMD", "mysqladmin", "ping", "-h", "127.0.0.1"]
@@ -465,7 +458,7 @@ const createDockerComposeFile = (repoPath, frontendTech, backendTech, databaseTy
           ports:
             - "27017:27017"
           volumes:
-            - db-data:/data/db
+            - ${folderName}-data:/data/db
             - ./database/init:/docker-entrypoint-initdb.d
       `;
       break;
@@ -501,7 +494,7 @@ const createDockerComposeFile = (repoPath, frontendTech, backendTech, databaseTy
             POSTGRES_PASSWORD: postgres
             POSTGRES_DB: mydb
           volumes:
-            - db-data:/var/lib/postgresql/data
+            - ${folderName}-data:/var/lib/postgresql/data
             - ./database/init:/docker-entrypoint-initdb.d
           healthcheck:
             test: ["CMD-SHELL", "pg_isready -U postgres -d mydb"]
@@ -540,7 +533,7 @@ const createDockerComposeFile = (repoPath, frontendTech, backendTech, databaseTy
           ports:
             - "3307:3307"
           volumes:
-            - db-data:/var/lib/mysql
+            - ${folderName}-data:/var/lib/mysql
             - ./database/init:/docker-entrypoint-initdb.d
           healthcheck:
             test: ["CMD", "mysqladmin", "ping", "-h", "127.0.0.1"]
@@ -573,7 +566,7 @@ const createDockerComposeFile = (repoPath, frontendTech, backendTech, databaseTy
           ports:
             - "27017:27017"
           volumes:
-            - db-data:/data/db
+            - ${folderName}-data:/data/db
             - ./database/init:/docker-entrypoint-initdb.d
       `;
       break;
@@ -596,18 +589,18 @@ const createDockerComposeFile = (repoPath, frontendTech, backendTech, databaseTy
           - ./frontend/${frontendPath}:/usr/share/nginx/html  # Serve frontend files (Ensure frontendPath is correct)
           
         ports:
-          - "8080:80"  # Expose Nginx on port 8080
+          - "8081:80"
         depends_on:
           - backend
           ${frontendPath ? "- frontend" : ""}
           - db
 
 networks:
-  app-network:
+  ${networkName}:
     driver: bridge
 
 volumes:
-  db-data:
+  ${folderName}-data:
   `;
   console.log(dockerCompose);
   // Ensure the output is correctly written to the file
@@ -618,7 +611,7 @@ volumes:
 // Function to check nginx is serving
 const checkNginx = async () => {
   try {
-    const response = await fetch('http://localhost:8080'); // Checking the deployed frontend
+    const response = await fetch(`http://localhost:8081`); // Checking the deployed frontend
     if (response.status === 200) {
       return true; // Nginx is ready
     }
@@ -629,12 +622,61 @@ const checkNginx = async () => {
   }
 };
 
+// CHECK URL VALIDATION
+const validateRepositoryUrl = async (repoUrl) => {
+  const ALLOWED_DOMAINS = ['github.com', 'gitlab.com', 'bitbucket.org'];
+
+  // Validate URL format
+  const isValidGitUrl = (url) => {
+    const gitUrlPattern = /^(https?:\/\/)?([\w.-]+)\.([a-z]{2,})(\/[\w.-]+)*\/?(\/)?(\.git)?$/i;
+    return gitUrlPattern.test(url);
+  };
+
+  // Check if the domain is allowed
+  const isValidDomain = (url) => {
+    try {
+      const { hostname } = new URL(url);
+      return ALLOWED_DOMAINS.some(domain => hostname.endsWith(domain));
+    } catch (error) {
+      return false; // Invalid URL format
+    }
+  };
+
+  // Prevent SSRF
+  const isSafeUrl = (url) => {
+    try {
+      const { hostname } = new URL(url);
+      const isPrivateIP = /^(10\.|172\.(1[6-9]|2[0-9]|3[0-1])\.|192\.168\.)/.test(hostname);
+      const isLocalhost = hostname === 'localhost' || hostname === '127.0.0.1';
+      return !isPrivateIP && !isLocalhost;
+    } catch (error) {
+      return false; // Invalid URL format
+    }
+  };
+
+  // Perform all checks
+  if (!isValidGitUrl(repoUrl)) {
+    return false;
+  }
+
+  if (!isValidDomain(repoUrl)) {
+    return false;
+  }
+
+  if (!isSafeUrl(repoUrl)) {
+    return false;
+  }
+  return true;
+};
+
 // Clone the repository based on the URL provided in the request
-app.post('/api/clone-repo', (req, res) => {
+app.post('/api/clone-repo', async (req, res) => {
   const { repoUrl } = req.body;
 
-  if (!repoUrl) {
-    sendStatus('Repository URL is required'); 
+  // url validation
+  const validatedUrl = await validateRepositoryUrl(repoUrl);
+  if(!validatedUrl){
+    sendStatus('🚨 Not a valid URL');
     return;
   }
 
@@ -653,6 +695,7 @@ app.post('/api/clone-repo', (req, res) => {
         }
 
         sendStatusDelayed('✅ Repository cloned successfully!', 1500);
+
           // Detect frontend and backend technologies
         const frontendTech = detectFrontendTechnology(clonePath);
         const backendTech = detectBackendTechnology(clonePath);
@@ -686,7 +729,7 @@ app.post('/api/clone-repo', (req, res) => {
         
         sendStatusDelayed('📦 Creating docker-compose...', 5000);
         // Create docker-compose.yml
-        createDockerComposeFile(clonePath, frontendTech, backendTech, databaseTech);
+        createDockerComposeFile(clonePath, frontendTech, backendTech, databaseTech, clonePath);
         sendStatusDelayed('✅ Docker-compose created!', 7000);
         
         sendStatusDelayed('🚀 Starting Deployment...', 9000);
@@ -727,7 +770,7 @@ app.post('/api/clone-repo', (req, res) => {
       
       sendStatus('🚀 Deployment completed successfully!');
       console.log('Ready to go');
-      sendStatus(`🔗 <a href='http://localhost:8080' target='_blank'>View Deployed App</a>`);
+      sendStatus(`🔗 <a href='http://localhost:8081' target='_blank'>View Deployed App</a>`);
 
       
       }catch(error) {
@@ -738,12 +781,12 @@ app.post('/api/clone-repo', (req, res) => {
       }
     })
     .catch((err) => {
-      console.log('Error cloning repo:', err);
+      console.error('Error cloning repo:', err);
       if(err.message.includes('Repository not found')){
         sendStatus(`🚨 Repository not found! Please check the repo URL.`);
-
       }else{
-        sendStatus(`🚨 Error Cloning Repository: ${err.message}`);
+        sendStatus(`🚨 Error Cloning Repository`);
+
       }
     });
 });
