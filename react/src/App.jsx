@@ -55,24 +55,25 @@ function Home() {
 
   useEffect(() => {
     const interval = setInterval(() => {
-      setFade(false);  // Start fade-out for platform name
+      setFade(false);
 
       setTimeout(() => {
-        setIndex((prev) => (prev + 1) % platforms.length); // Change platform
-        setFade(true); // Start fade-in
-      }, 500); // Delay to allow fade-out
+        setIndex((prev) => (prev + 1) % platforms.length);
+        setFade(true); 
+      }, 500);
 
     }, 4000); 
 
     return () => clearInterval(interval); // Clean up interval
   }, []);
 
+  // UseEffect to Generation Floating Icons
   useEffect(() => {
     const generateFloatingIcons = () => {
       const icons = [];
       const directions = ['from-top', 'from-bottom', 'from-left', 'from-right'];
       for (let i = 0; i < 50; i++) { // 50 floating icons
-        const size = Math.random() * 30 + 11; // Random size between 10 and 40
+        const size = Math.random() * 30 + 11; 
         const top = Math.random() * 100; // Random top position
         const left = Math.random() * 100; // Random left position
         const direction = directions[Math.floor(Math.random() * directions.length)]; // Random direction
