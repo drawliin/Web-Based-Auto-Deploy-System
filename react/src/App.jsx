@@ -83,7 +83,7 @@ function Home() {
     const icons = [];
     const directions = ['from-top', 'from-bottom', 'from-left', 'from-right'];
     for (let i = 0; i < 50; i++) { // Increased number of icons to 50
-      const size = Math.random() * 30 + 10; // Random size between 10 and 40
+      const size = Math.random() * 30 + 11; // Random size between 10 and 40
       const top = Math.random() * 100; // Random top position
       const left = Math.random() * 100; // Random left position
       const direction = directions[Math.floor(Math.random() * directions.length)]; // Random direction
