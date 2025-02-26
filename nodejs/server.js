@@ -4,7 +4,7 @@ const simpleGit = require('simple-git');
 const fs = require('fs');
 const { exec } = require('child_process');
 const path = require('path');
-const http = require('http'); // Import HTTP module
+const http = require('http'); 
 const { Server } = require('socket.io'); // Import socket.io
 
 
@@ -14,7 +14,7 @@ const port = 5001;
 const server = http.createServer(app); // Create HTTP server
 const io = new Server(server, {
     cors: {
-        origin: ["http://localhost:5174", "http://localhost:5173", "http://localhost:5175"], // Allow all origins (Change this in production)
+        origin: ["http://localhost:5174", "http://localhost:5173", "http://localhost:5175"], 
         methods: ["GET", "POST"]
     }
 });
