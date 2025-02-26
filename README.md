@@ -25,14 +25,14 @@ Ensure you have the following installed:
 
 ---
 
-## 📂 Project Structure
+## 📂 Valid Project Structure
 
 Your project should follow this structure for seamless deployment:
 
 ```
 your-repo/
-├── frontend/   # Frontend code (React, Vue, etc.)
-├── backend/    # Backend code (Node.js, Python Flask, etc.)
+├── frontend/   # Frontend code (React, Vue)
+├── backend/    # Backend code (Node.js, Python Flask) (MySQL, PostgreSQL, MongoDB)
 ├── database/   # Database initialization scripts
 │   └── init/   # Folder containing database initialization scripts
 └── ...
@@ -59,20 +59,72 @@ database/
 
 ### 🔑 Required Environment Variables
 
+These environment variables are essential for the Docker deployment process. Make sure to include them in your project’s environment files so that Docker can set up the deployment correctly.
+
 #### Frontend
 - `VITE_API_URL` (Vite) or `REACT_APP_API_URL` (Create React App) → Backend API URL (e.g., `http://localhost:4002/api`)
 
 #### Backend
-- `DB_HOST`: Database host (e.g., `db`)
-- `DB_USER`: Database username (e.g., `root`, `postgres`)
-- `DB_PASS`: Database password (e.g., `root`, `postgres`)
-- `DB_NAME`: Database name (e.g., `mydb`)
+- `DB_HOST`: Database host (e.g., `db`)  
+- `DB_USER`: Database username (e.g., `root`, `postgres`)  
+- `DB_PASS`: Database password (e.g., `root`, `postgres`)  
+- `DB_NAME`: Database name (e.g., `mydb`)  
 - `PORT`: Backend server port (e.g., `4002`)
 
 #### Database
 - `MYSQL_ROOT_PASSWORD` (MySQL) or `POSTGRES_PASSWORD` (PostgreSQL) → Root password
 
 ---
+
+### 📝 Setting Up Environment Variables
+
+To ensure Docker can handle the deployment process without errors, you need to create a `.env` file in your project root directory . Add the required environment variables based on your stack setup.
+
+**Example `.env` file:**
+
+```env
+# Frontend
+VITE_API_URL=http://localhost:4002/api   # for Vite
+# or
+REACT_APP_API_URL=http://localhost:4002/api  # for Create React App
+
+# Backend
+DB_HOST=db
+DB_USER=root
+DB_PASS=root
+DB_NAME=mydb
+PORT=4002
+
+# Database
+MYSQL_ROOT_PASSWORD=root   # for MySQL
+# or
+POSTGRES_PASSWORD=postgres   # for PostgreSQL
+```
+
+
+### 🛠 Supported Technologies
+
+The project currently supports the following technologies for each component:
+
+#### 🌐 Frontend:
+- **React** (with Create React App or Vite)  
+- **Vue** (with Vite)
+
+*More frontend frameworks (e.g., Angular, Svelte) will be integrated in the future.*
+
+#### ⚙️ Backend:
+- **Node.js** (Express.js or other frameworks)  
+- **Python Flask**
+
+*More backend frameworks (e.g., Django, Spring Boot) will be integrated in the future.*
+
+#### 🗄️ Database:
+- **MySQL**  
+- **PostgreSQL**  
+- **MongoDB**
+
+*More databases (e.g., SQLite, Redis) will be integrated in the future.*
+
 
 ## 🏗 SETUP & Installation
 
@@ -100,13 +152,13 @@ npm run dev
 
 ### 🔹 Deploy a Repository
 
-![Deployment Flow](./images/capture.png)
+![Deployment Flow](./images/Capture.PNG)
 
 1. Open the frontend in your browser at http://localhost:5173.
 2. Enter your GitHub repository URL in the input field.
 3. Click the Clone Repo button.
 4. The backend will handle cloning the repository and setting up the deployment.
-Replace `https://github.com/your-username/your-repo.git` with your repository URL.
+5. Replace `https://github.com/your-username/your-repo.git` with your repository URL.
 
 ### 🔹 Monitor Deployment
 Track the deployment process in real-time via WebSocket:
@@ -126,10 +178,14 @@ http://localhost:8081
 
 ```
 .
-├── app.js          # Main Express server file
-├── routes/         # API routes
-├── utils/          # Utility functions (cloning, tech detection, Dockerfile generation)
-├── cloned-repos/   # Directory where cloned repositories are stored
+├── nodejs/
+    ├── cloned-repos/   # Directory where cloned repositories are stored
+    ├── server.js       # Main Express server file
+
+├── react/
+    ├── src/
+        ├── App.jsx
+        ├── index.jsx
 └── ...
 ```
 
@@ -141,7 +197,8 @@ Contributions are welcome! Feel free to open an issue or submit a pull request f
 ---
 
 ## 📜 License
-This project is licensed under the MIT License. See the `LICENSE` file for details.
+This project is licensed under the MIT License. See the [MIT License](https://opensource.org/licenses/MIT) for details.
+
 
 ---
 
