@@ -100,7 +100,7 @@ npm run dev
 
 ### 🔹 Deploy a Repository
 
-![Deployment Flow](./images/capture.png)
+![Deployment Flow](./images/Capture.PNG)
 
 1. Open the frontend in your browser at http://localhost:5173.
 2. Enter your GitHub repository URL in the input field.
