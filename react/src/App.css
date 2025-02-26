@@ -81,6 +81,19 @@ body {
     align-items: center; /* Aligns image and text properly */
     gap: 15px; /* Adds space between logo and text */
 }
+.platform-name {
+  display: inline-block;
+  transition: opacity 0.5s ease-in-out;
+}
+
+.opacity-100 {
+  opacity: 1;
+}
+
+.opacity-0 {
+  opacity: 0;
+}
+
 
 .title img {
     width: 55px; /* Adjust size as needed */

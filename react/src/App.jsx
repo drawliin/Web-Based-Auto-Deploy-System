@@ -26,6 +26,10 @@ function Home() {
   const [wsMessages, setWsMessages] = useState([]);
   const [showTerminal, setShowTerminal] = useState(false);
   const terminalRef = useRef(null);
+  const [floatingIcons, setFloatingIcons] = useState([]);
+  const platforms = ["GitHub", "GitLab", "Bitbucket"];
+  const [index, setIndex] = useState(0);
+  const [fade, setFade] = useState(true);
 
   useEffect(() => {
     socket.on('status', (message) => {
@@ -48,6 +52,37 @@ function Home() {
       terminalRef.current.scrollTop = terminalRef.current.scrollHeight;
     }
   }, [wsMessages]);
+
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setFade(false);  // Start fade-out for platform name
+
+      setTimeout(() => {
+        setIndex((prev) => (prev + 1) % platforms.length); // Change platform
+        setFade(true); // Start fade-in
+      }, 500); // Delay to allow fade-out
+
+    }, 4000); 
+
+    return () => clearInterval(interval); // Clean up interval
+  }, []);
+
+  useEffect(() => {
+    const generateFloatingIcons = () => {
+      const icons = [];
+      const directions = ['from-top', 'from-bottom', 'from-left', 'from-right'];
+      for (let i = 0; i < 50; i++) { // 50 floating icons
+        const size = Math.random() * 30 + 11; // Random size between 10 and 40
+        const top = Math.random() * 100; // Random top position
+        const left = Math.random() * 100; // Random left position
+        const direction = directions[Math.floor(Math.random() * directions.length)]; // Random direction
+        icons.push(<FloatingGithubIcon key={i} size={size} top={top} left={left} direction={direction} />);
+      }
+      return icons;
+    };
+  
+    setFloatingIcons(generateFloatingIcons());
+  }, []);
 
   const handleClone = async () => {
     if (repoUrl) {
@@ -78,22 +113,11 @@ function Home() {
     }
   };
 
-  const generateFloatingIcons = () => {
-    const icons = [];
-    const directions = ['from-top', 'from-bottom', 'from-left', 'from-right'];
-    for (let i = 0; i < 50; i++) { // Increased number of icons to 50
-      const size = Math.random() * 30 + 11; // Random size between 10 and 40
-      const top = Math.random() * 100; // Random top position
-      const left = Math.random() * 100; // Random left position
-      const direction = directions[Math.floor(Math.random() * directions.length)]; // Random direction
-      icons.push(<FloatingGithubIcon key={i} size={size} top={top} left={left} direction={direction} />);
-    }
-    return icons;
-  };
+
 
   return (
     <div className='container'>
-      {generateFloatingIcons()}
+      {floatingIcons}
       <div className='navbar'>
         <a href="/" className="home-link">GitHub AutoDeploy App</a>
         <div>
@@ -105,7 +129,14 @@ function Home() {
 
       <div className="app-container">
         <div className={`input-container ${showTerminal ? 'moved-up' : ''}`}>
-          <h1 className="title"><img src='./github-logo.png' alt='GitHub Logo' /> Clone a GitHub Repo</h1>
+          <h1 className="title">
+            <img src='./github-logo.png' alt='GitHub Logo' /> 
+            Clone a 
+            <span className={`platform-name transition-opacity duration-500 ${fade ? "opacity-100" : "opacity-0"}`}>
+              {platforms[index]}
+            </span> Repo
+          </h1>
+
           <div className="input-box">
             <input
               type="text"
