@@ -1,8 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { BrowserRouter as Router, Routes, Route, Link } from 'react-router-dom';
 import { io } from 'socket.io-client';
-import { Github } from 'lucide-react'; // Import the Github icon from lucide-react
-import HowItWorks from './HowItWorks';
+import { GitBranch, Github } from 'lucide-react'; // Import the Github icon from lucide-react
 import './App.css';
 
 const socket = io('http://localhost:5001');
@@ -97,10 +96,11 @@ function Home() {
     <div className='container'>
       {generateFloatingIcons()}
       <div className='navbar'>
-        <Link to="/" className="home-link">GitHub AutoDeploy App</Link>
+        <a href="/" className="home-link">GitHub AutoDeploy App</a>
         <div>
           <a href="https://github.com/drawliin/web-based-auto-deploy-system.git" target='_blank'>Source Code</a>
-          <Link to="/how-it-works">How it works?</Link>
+          <a href="https://github.com/drawliin/web-based-auto-deploy-system/blob/main/README.md" target='_blank'>How It works?</a>
+          
         </div>
       </div>
 
@@ -116,6 +116,7 @@ function Home() {
               disabled={disableInput}
             />
             <button onClick={handleClone} disabled={disableInput}>
+              <GitBranch className="button-icon" />
               Clone Repo
             </button>
           </div>
@@ -135,18 +136,17 @@ function Home() {
           </div>
         )}
       </div>
+
+      <footer>
+            Built by <a target='_blank' href="https://github.com/drawliin" rel="noreferrer">Houssam Eddine HAMOUICH</a> | <a target='_blank' href="https://github.com/BCHAYMAE" rel="noreferrer">Chaymae BELLAHCENE</a>
+      </footer>
     </div>
   );
 }
 
 function App() {
   return (
-    <Router>
-      <Routes>
-        <Route path="/" element={<Home />} />
-        <Route path="/how-it-works" element={<HowItWorks />} />
-      </Routes>
-    </Router>
+    <Home/>
   );
 }
 

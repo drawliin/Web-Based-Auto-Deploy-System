@@ -143,6 +143,10 @@ body {
     cursor: pointer;
     font-size: 1rem;
     font-weight: bold;
+    display: flex;
+    align-items: center; /* Vertically center the content */
+    justify-content: center; /* Horizontally center */
+    gap: 5px;
     transition: all 0.3s ease-in-out;
 }
 
@@ -309,4 +313,27 @@ body {
   100% {
     transform: translateX(-100vw);
   }
+}
+
+
+footer {
+  position: relative;
+  bottom: 30px;
+  left: 50%;
+  transform: translateX(-50%);
+  text-align: center; 
+  font-size: 14px; 
+  color: #ffffff; 
+  font-weight: 500; 
+  
+}
+footer a {
+  color: #A569BD; 
+  text-decoration: none; 
+  font-weight: 600; 
+  transition: color 0.3s ease; 
+}
+footer a:hover {
+  color: #884EA0; 
+  text-decoration: underline; 
 }
