@@ -14,7 +14,7 @@ const port = 5001;
 const server = http.createServer(app); // Create HTTP server
 const io = new Server(server, {
     cors: {
-        origin: ["http://localhost:5174", "http://localhost:5173"], // Allow all origins (Change this in production)
+        origin: ["http://localhost:5174", "http://localhost:5173", "http://localhost:5175"], // Allow all origins (Change this in production)
         methods: ["GET", "POST"]
     }
 });
@@ -51,7 +51,54 @@ const generateUniqueFolderName = (repoUrl) => {
   return path.join(__dirname, 'cloned-repos', uniqueName);
 };
 
-// Function to check if the cloned repo has the full-stack app structure
+// CHECK URL VALIDATION
+const validateRepositoryUrl = async (repoUrl) => {
+  const ALLOWED_DOMAINS = ['github.com', 'gitlab.com', 'bitbucket.org'];
+
+  // Validate URL format
+  const isValidGitUrl = (url) => {
+    const gitUrlPattern = /^(https?:\/\/)?([\w.-]+)\.([a-z]{2,})(\/[\w.-]+)*\/?(\/)?(\.git)?$/i;
+    return gitUrlPattern.test(url);
+  };
+
+  // Check if the domain is allowed
+  const isValidDomain = (url) => {
+    try {
+      const { hostname } = new URL(url);
+      return ALLOWED_DOMAINS.some(domain => hostname.endsWith(domain));
+    } catch (error) {
+      return false; // Invalid URL format
+    }
+  };
+
+  // Prevent SSRF
+  const isSafeUrl = (url) => {
+    try {
+      const { hostname } = new URL(url);
+      const isPrivateIP = /^(10\.|172\.(1[6-9]|2[0-9]|3[0-1])\.|192\.168\.)/.test(hostname);
+      const isLocalhost = hostname === 'localhost' || hostname === '127.0.0.1';
+      return !isPrivateIP && !isLocalhost;
+    } catch (error) {
+      return false; // Invalid URL format
+    }
+  };
+
+  // Perform all checks
+  if (!isValidGitUrl(repoUrl)) {
+    return false;
+  }
+
+  if (!isValidDomain(repoUrl)) {
+    return false;
+  }
+
+  if (!isSafeUrl(repoUrl)) {
+    return false;
+  }
+  return true;
+};
+
+// Function to check if the cloned repo has the full-stack app structure and retrieves the folders name
 const isFullStackApp = (repoPath) => {
   // Define possible folder names for each component
   const frontendNames = ['frontend', 'client', 'web', 'ui', 'app'];
@@ -644,53 +691,6 @@ const checkNginx = async () => {
     console.error('Error checking Nginx:', error.message);
     return false; // Nginx is not ready
   }
-};
-
-// CHECK URL VALIDATION
-const validateRepositoryUrl = async (repoUrl) => {
-  const ALLOWED_DOMAINS = ['github.com', 'gitlab.com', 'bitbucket.org'];
-
-  // Validate URL format
-  const isValidGitUrl = (url) => {
-    const gitUrlPattern = /^(https?:\/\/)?([\w.-]+)\.([a-z]{2,})(\/[\w.-]+)*\/?(\/)?(\.git)?$/i;
-    return gitUrlPattern.test(url);
-  };
-
-  // Check if the domain is allowed
-  const isValidDomain = (url) => {
-    try {
-      const { hostname } = new URL(url);
-      return ALLOWED_DOMAINS.some(domain => hostname.endsWith(domain));
-    } catch (error) {
-      return false; // Invalid URL format
-    }
-  };
-
-  // Prevent SSRF
-  const isSafeUrl = (url) => {
-    try {
-      const { hostname } = new URL(url);
-      const isPrivateIP = /^(10\.|172\.(1[6-9]|2[0-9]|3[0-1])\.|192\.168\.)/.test(hostname);
-      const isLocalhost = hostname === 'localhost' || hostname === '127.0.0.1';
-      return !isPrivateIP && !isLocalhost;
-    } catch (error) {
-      return false; // Invalid URL format
-    }
-  };
-
-  // Perform all checks
-  if (!isValidGitUrl(repoUrl)) {
-    return false;
-  }
-
-  if (!isValidDomain(repoUrl)) {
-    return false;
-  }
-
-  if (!isSafeUrl(repoUrl)) {
-    return false;
-  }
-  return true;
 };
 
 // Clone the repository based on the URL provided in the request
