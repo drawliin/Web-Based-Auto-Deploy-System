@@ -776,7 +776,7 @@ app.post('/api/clone-repo', async (req, res) => {
                   resolve();
               }
           });
-      });
+        });
 
       // Check if Nginx is ready
       let retries = 50;
