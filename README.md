@@ -191,18 +191,26 @@ http://localhost:8081
 
 ---
 
+## 🧪 Test with Sample Projects
+
+To quickly test the deployment system, use one of these sample repositories:
+
+1. **Vue + Node.js + MySQL**  
+   🔗 [Fullstack App With VueJS and MySQL](https://github.com/drawliin/FullStack-Vue-MySQL.git)  
+   ```sh
+   https://github.com/drawliin/FullStack-Vue-MySQL.git
+
+
 ## 🤝 Contributing
 Contributions are welcome! Feel free to open an issue or submit a pull request for improvements.
+
+---
+## 🙌 Acknowledgments
+- **[Express.js](https://expressjs.com/)** – Web server framework
+- **[Docker](https://www.docker.com/)** – Containerization
+- **[Socket.IO](https://socket.io/)** – Real-time communication
 
 ---
 
 ## 📜 License
 This project is licensed under the MIT License. See the [MIT License](https://opensource.org/licenses/MIT) for details.
-
-
----
-
-## 🙌 Acknowledgments
-- **[Express.js](https://expressjs.com/)** – Web server framework
-- **[Docker](https://www.docker.com/)** – Containerization
-- **[Socket.IO](https://socket.io/)** – Real-time communication
