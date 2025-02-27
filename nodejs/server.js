@@ -752,7 +752,6 @@ app.post('/api/clone-repo', async (req, res) => {
         //create nginx.conf
         createNginxConfig(clonePath);
         
-        sendStatusDelayed('📦 Creating docker-compose...', 5000);
         // Create docker-compose.yml
         createDockerComposeFile(clonePath, frontendTech, backendTech, databaseTech, clonePath, repoFoldersName);
         sendStatusDelayed('✅ Docker-compose created!', 7000);
@@ -762,19 +761,21 @@ app.post('/api/clone-repo', async (req, res) => {
         //Automatically build and deploy
         await new Promise((resolve, reject) => {
           exec(`cd ${clonePath} && docker-compose up --build -d`, (err, stdout, stderr) => {
-              if (err) {
-                  console.log("Deployment Error:", stderr);
-                  if (stderr.includes("port is already allocated")) {
-                      reject(new Error("Deployment Failed: Port Conflict. Another service is using the required port."));
-                  } else if (stderr.includes("error during connect")) {
-                      reject(new Error("Docker Desktop is not running. Please start Docker and try again."));
-                  } else {
-                      reject(new Error(`Error deploying application: ${stderr}`));
-                  }
+            if (err) {
+              console.log("Deployment Error:", stderr);
+              if (stderr.includes("port is already allocated")) {
+                reject(new Error("Deployment Failed: Port Conflict. Another service is using the required port."));
+              } else if (stderr.includes("error during connect")) {
+                reject(new Error("Docker Desktop is not running. Please start Docker and try again."));
+              } else if (stderr.includes("command not found")) {
+                reject(new Error("Docker or Docker Compose is not installed. Please install Docker and try again."));
               } else {
-                  console.log("Deployment Success:", stdout);
-                  resolve();
+                reject(new Error(`Error deploying application: ${stderr}`));
               }
+            } else {
+              console.log("Deployment Success:", stdout);
+              resolve();
+            }
           });
         });
 
