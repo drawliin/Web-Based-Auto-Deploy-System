@@ -3,7 +3,11 @@ import { io } from 'socket.io-client';
 import { GitBranch, Github } from 'lucide-react'; // Import the Github icon from lucide-react
 import './App.css';
 
-const socket = io('http://localhost:5001');
+const socket = io('http://localhost:5001', {
+  reconnection: true,
+  reconnectionAttempts: 5,
+  reconnectionDelay: 1000,
+});
 
 function FloatingGithubIcon({ size, top, left, direction }) {
   return (
