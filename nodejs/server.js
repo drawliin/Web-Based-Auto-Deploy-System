@@ -36,8 +36,22 @@ const sendStatus = (message) => {
   io.emit('status', message);
 };
 
+const statusQueue = [];
+let isProcessing = false;
+const processStatusQueue = () => {
+  if (statusQueue.length === 0 || isProcessing) return;
+  isProcessing = true;
+  const { message, delay } = statusQueue.shift();
+  setTimeout(() => {
+    sendStatus(message);
+    isProcessing = false;
+    processStatusQueue();
+  }, delay);
+};
+
 const sendStatusDelayed = (message, delay = 1000) => {
-  setTimeout(() => sendStatus(message), delay);
+  statusQueue.push({ message, delay });
+  processStatusQueue();
 };
 
 // Initialize simple-git
@@ -761,21 +775,19 @@ app.post('/api/clone-repo', async (req, res) => {
         //Automatically build and deploy
         await new Promise((resolve, reject) => {
           exec(`cd ${clonePath} && docker-compose up --build -d`, (err, stdout, stderr) => {
-            if (err) {
-              console.log("Deployment Error:", stderr);
-              if (stderr.includes("port is already allocated")) {
-                reject(new Error("Deployment Failed: Port Conflict. Another service is using the required port."));
-              } else if (stderr.includes("error during connect")) {
-                reject(new Error("Docker Desktop is not running. Please start Docker and try again."));
-              } else if (stderr.includes("command not found")) {
-                reject(new Error("Docker or Docker Compose is not installed. Please install Docker and try again."));
+              if (err) {
+                  console.log("Deployment Error:", stderr);
+                  if (stderr.includes("port is already allocated")) {
+                      reject(new Error("Deployment Failed: Port Conflict. Another service is using the required port."));
+                  } else if (stderr.includes("error during connect")) {
+                      reject(new Error("Docker Desktop is not running. Please start Docker and try again."));
+                  } else {
+                      reject(new Error(`Error deploying application: ${stderr}`));
+                  }
               } else {
-                reject(new Error(`Error deploying application: ${stderr}`));
+                  console.log("Deployment Success:", stdout);
+                  resolve();
               }
-            } else {
-              console.log("Deployment Success:", stdout);
-              resolve();
-            }
           });
         });
 
@@ -802,7 +814,8 @@ app.post('/api/clone-repo', async (req, res) => {
       }catch(error) {
         console.error(`Error: ${error.message}`)
         deleteRepo(clonePath);
-        sendStatus(`🚨 Error: ${error.message}`);
+        // added this because websocket messages takes times to get sended.. and the exec function got executed before ws send messages.. which leads to the appearance of messages after Errors
+        sendStatusDelayed(`🚨 Error: ${error.message}`, 8500);
       
       }
     })
