@@ -199,6 +199,10 @@ To quickly test the deployment system, use one of these sample repositories:
    🔗 [Fullstack App With VueJS and MySQL](https://github.com/drawliin/FullStack-Vue-MySQL.git)  
    ```sh
    https://github.com/drawliin/FullStack-Vue-MySQL.git
+2. **React Vite + Node.js + MySQL**  
+   🔗 [Fullstack App With React and MySQL](https://github.com/drawliin/FullStack-React-Node-MySQL.git)  
+   ```sh
+   https://github.com/drawliin/FullStack-React-Node-MySQL.git
 
 
 ## 🤝 Contributing
