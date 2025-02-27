@@ -124,7 +124,7 @@ function Home() {
     <div className='container'>
       {floatingIcons}
       <div className='navbar'>
-        <a href="/" className="home-link">GitHub AutoDeploy App</a>
+        <a href="/" className="home-link">GitRepo AutoDeploy App</a>
         <div>
           <a href="https://github.com/drawliin/web-based-auto-deploy-system.git" target='_blank'>Source Code</a>
           <a href="https://github.com/drawliin/web-based-auto-deploy-system/blob/main/README.md" target='_blank'>How It works?</a>
@@ -145,7 +145,7 @@ function Home() {
           <div className="input-box">
             <input
               type="text"
-              placeholder="Enter GitHub Repo URL"
+              placeholder="Enter Git Repo URL"
               value={repoUrl}
               onChange={(e) => setRepoUrl(e.target.value)}
               disabled={disableInput}
