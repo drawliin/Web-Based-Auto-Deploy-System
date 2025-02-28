@@ -195,22 +195,26 @@ http://localhost:8081
 
 To quickly test the deployment system, use one of these sample repositories:
 
-1. **Vue + Node.js + MySQL**  
-   🔗 [Fullstack App With VueJS and MySQL](https://github.com/drawliin/FullStack-Vue-MySQL.git)  
-   ```sh
-   https://github.com/drawliin/FullStack-Vue-MySQL.git
-2. **React Vite + Node.js + MySQL**  
+1. **React Vite + Node.js + MySQL**  
    🔗 [Fullstack App With NodeJS and MySQL](https://github.com/drawliin/FullStack-React-Node-MySQL.git)  
    ```sh
    https://github.com/drawliin/FullStack-React-Node-MySQL.git
+   
+2. **Vue + Node.js + MySQL**  
+   🔗 [Fullstack App With VueJS and MySQL](https://github.com/drawliin/FullStack-Vue-MySQL.git)  
+   ```sh
+   https://github.com/drawliin/FullStack-Vue-MySQL.git
+   
 3. **React CRA + Python Flask + MySQL**  
    🔗 [FullStack App With React (CRA) and FLASK](https://github.com/drawliin/FullStack-ReactCRA-FLASK.git)  
    ```sh
    https://github.com/drawliin/FullStack-ReactCRA-FLASK.git
+   
 4. **React Vite + Python Flask + MongoDB**  
    🔗 [FullStack App With FLASK and MongoDB](https://github.com/drawliin/fullstack-python-mongo.git)  
    ```sh
    https://github.com/drawliin/fullstack-python-mongo.git
+   
 5. **React Vite + NodeJS + PostgreSQL**  
    🔗 [FullStack App With Node and PostgreSQL](https://github.com/drawliin/Fullstack-Node-PostgreSQL.git)  
    ```sh
