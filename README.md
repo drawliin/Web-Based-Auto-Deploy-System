@@ -203,6 +203,10 @@ To quickly test the deployment system, use one of these sample repositories:
    🔗 [Fullstack App With React and MySQL](https://github.com/drawliin/FullStack-React-Node-MySQL.git)  
    ```sh
    https://github.com/drawliin/FullStack-React-Node-MySQL.git
+3. **React CRA + Python Flask + MySQL**  
+   🔗 [FullStack-ReactCRA-FLASK](https://github.com/drawliin/FullStack-ReactCRA-FLASK.git)  
+   ```sh
+   https://github.com/drawliin/FullStack-ReactCRA-FLASK.git
 
 
 ## 🤝 Contributing
