@@ -211,6 +211,10 @@ To quickly test the deployment system, use one of these sample repositories:
    🔗 [FullStack App With FLASK and MongoDB](https://github.com/drawliin/fullstack-python-mongo.git)  
    ```sh
    https://github.com/drawliin/fullstack-python-mongo.git
+5. **React Vite + NodeJS + PostgreSQL**  
+   🔗 [FullStack App With Node and PostgreSQL](https://github.com/drawliin/Fullstack-Node-PostgreSQL.git)  
+   ```sh
+   https://github.com/drawliin/Fullstack-Node-PostgreSQL.git
 
 
 ## 🤝 Contributing
