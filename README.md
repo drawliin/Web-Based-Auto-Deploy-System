@@ -63,6 +63,7 @@ These environment variables are essential for the Docker deployment process. Mak
 
 #### Frontend
 - `VITE_API_URL` (Vite) or `REACT_APP_API_URL` (Create React App) → Backend API URL (e.g., `http://localhost:4002/api`)
+- Backend Requests Should start with `/api`
 
 #### Backend
 - `DB_HOST`: Database host (e.g., `db`)  
