@@ -246,7 +246,11 @@ const detectDatabase = (repoPath, backendTech, folderName) => {
         let buffer = fs.readFileSync(requirementsPath);
         let requirements = buffer.toString('utf16le');
         requirements = requirements.replace(/\r/g, '').trim().toLowerCase();
-        if (requirements.includes('mysqlclient')) return 'mysql';
+        if (requirements.includes('mysqlclient') ||
+            requirements.includes('mysql-connector-python') ||
+            requirements.includes('pymysql') ||
+            requirements.includes('sqlalchemy') && requirements.includes('mysql')
+        ) return 'mysql';
         if (requirements.includes('psycopg2')) return 'postgres';
         if (requirements.includes('pymongo')) return 'mongodb';
       }
@@ -576,7 +580,7 @@ const createDockerComposeFile = (repoPath, frontendTech, backendTech, databaseTy
             - "5432:5432"
           environment:
             POSTGRES_USER: postgres
-            POSTGRES_PASSWORD: postgres
+            POSTGRES_PASS: postgres
             POSTGRES_DB: mydb
           volumes:
             - ${folderNameNetwork}-data:/var/lib/postgresql/data
@@ -603,7 +607,7 @@ const createDockerComposeFile = (repoPath, frontendTech, backendTech, databaseTy
           environment:
             - DB_HOST=db
             - DB_USER=root
-            - DB_PASSWORD=root
+            - DB_PASS=root
             - DB_NAME=mydb
             - PORT=4002
       `;
@@ -781,6 +785,8 @@ app.post('/api/clone-repo', async (req, res) => {
                       reject(new Error("Deployment Failed: Port Conflict. Another service is using the required port."));
                   } else if (stderr.includes("error during connect")) {
                       reject(new Error("Docker Desktop is not running. Please start Docker and try again."));
+                  } else if (stderr.includes("exec: \"gunicorn\": executable file not found in $PATH")) {
+                      reject(new Error("Deployment Failed: Gunicorn is not installed. Please ensure Gunicorn is added to your application dependencies."));
                   } else {
                       reject(new Error(`Error deploying application: ${stderr}`));
                   }
