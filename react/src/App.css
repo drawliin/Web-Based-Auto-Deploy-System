@@ -179,7 +179,7 @@ body {
     font-family: "Courier New", monospace;
     padding: 20px;
     width: 55%;
-    height: 45%px;
+    max-height: 45%;
     overflow-y: auto;
     border-radius: 10px;
     border: 1px solid #00bcd4;

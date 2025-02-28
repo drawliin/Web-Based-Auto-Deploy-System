@@ -213,7 +213,7 @@ const detectPythonEntryFile = (repoPath, folderName) => {
 // Function to detect database used
 const detectDatabase = (repoPath, backendTech, folderName) => {
 
-  // Step 3: If no database is found in the backend, check the database folder for .env
+  // If no database is found in the backend, check the database folder for .env
   const databasePath = path.join(repoPath, folderName.database);
   if (fs.existsSync(databasePath)) {
     const envPath = path.join(databasePath, '.env');
@@ -580,7 +580,7 @@ const createDockerComposeFile = (repoPath, frontendTech, backendTech, databaseTy
             - "5432:5432"
           environment:
             POSTGRES_USER: postgres
-            POSTGRES_PASS: postgres
+            POSTGRES_PASSWORD: postgres
             POSTGRES_DB: mydb
           volumes:
             - ${folderNameNetwork}-data:/var/lib/postgresql/data
