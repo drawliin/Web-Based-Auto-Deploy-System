@@ -200,13 +200,17 @@ To quickly test the deployment system, use one of these sample repositories:
    ```sh
    https://github.com/drawliin/FullStack-Vue-MySQL.git
 2. **React Vite + Node.js + MySQL**  
-   🔗 [Fullstack App With React and MySQL](https://github.com/drawliin/FullStack-React-Node-MySQL.git)  
+   🔗 [Fullstack App With NodeJS and MySQL](https://github.com/drawliin/FullStack-React-Node-MySQL.git)  
    ```sh
    https://github.com/drawliin/FullStack-React-Node-MySQL.git
 3. **React CRA + Python Flask + MySQL**  
    🔗 [FullStack App With React (CRA) and FLASK](https://github.com/drawliin/FullStack-ReactCRA-FLASK.git)  
    ```sh
    https://github.com/drawliin/FullStack-ReactCRA-FLASK.git
+4. **React Vite + Python Flask + MongoDB**  
+   🔗 [FullStack App With FLASK and MongoDB](https://github.com/drawliin/fullstack-python-mongo.git)  
+   ```sh
+   https://github.com/drawliin/fullstack-python-mongo.git
 
 
 ## 🤝 Contributing
